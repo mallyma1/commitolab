@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Image, TextInput, ActivityIndicator, Alert, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -8,6 +9,7 @@ import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import { ONBOARDING_DATA_KEY, type OnboardingData } from "@/types/onboarding";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -15,6 +17,22 @@ export default function AuthScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+
+  useEffect(() => {
+    loadOnboardingData();
+  }, []);
+
+  const loadOnboardingData = async () => {
+    try {
+      const data = await AsyncStorage.getItem(ONBOARDING_DATA_KEY);
+      if (data) {
+        setOnboardingData(JSON.parse(data));
+      }
+    } catch (error) {
+      console.error("Error loading onboarding data:", error);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim()) {
@@ -30,7 +48,7 @@ export default function AuthScreen() {
 
     setIsLoading(true);
     try {
-      await login(email.trim().toLowerCase());
+      await login(email.trim().toLowerCase(), onboardingData || undefined);
     } catch (error) {
       Alert.alert("Login Failed", "Something went wrong. Please try again.");
     } finally {

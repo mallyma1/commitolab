@@ -48,14 +48,44 @@ function requireAuth(req: Request, res: Response, next: () => void) {
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email } = req.body;
+      const { email, onboarding } = req.body;
       if (!email) {
         return res.status(400).json({ error: "Email is required" });
       }
 
       let user = await storage.getUserByEmail(email);
+      const isNewUser = !user;
+      
       if (!user) {
         user = await storage.createUser({ email });
+      }
+
+      if (isNewUser && onboarding) {
+        const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence } = onboarding;
+        
+        user = await storage.updateUserOnboarding(user.id, {
+          identityArchetype,
+          primaryGoalCategory,
+          primaryGoalReason,
+          preferredCadence,
+        });
+
+        const today = new Date().toISOString().slice(0, 10);
+        const threeMonthsLater = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        
+        const commitmentTitle = buildDefaultCommitmentTitle(identityArchetype, primaryGoalCategory);
+        
+        try {
+          await storage.createCommitment(user!.id, {
+            title: commitmentTitle,
+            category: primaryGoalCategory || "fitness",
+            cadence: preferredCadence || "daily",
+            startDate: today,
+            endDate: threeMonthsLater,
+          });
+        } catch (commitmentError) {
+          console.error("Error creating initial commitment:", commitmentError);
+        }
       }
 
       return res.json({ user });

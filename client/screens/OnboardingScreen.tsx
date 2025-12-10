@@ -5,8 +5,6 @@ import {
   Pressable,
   TextInput,
   ScrollView,
-  ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -16,9 +14,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
-import { useAuth } from "@/contexts/AuthContext";
 import type { IdentityArchetype, GoalCategory } from "@shared/schema";
+import type { OnboardingData } from "@/types/onboarding";
 
 const archetypeLabels: Record<IdentityArchetype, string> = {
   athlete: "The Athlete",
@@ -59,16 +56,14 @@ const cadences = ["daily", "weekly", "custom"] as const;
 type Cadence = (typeof cadences)[number];
 
 type OnboardingScreenProps = {
-  onComplete: () => void;
+  onComplete: (data: OnboardingData) => void;
 };
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { user, refreshUser } = useAuth();
 
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
 
   const [identityArchetype, setIdentityArchetype] = useState<IdentityArchetype | null>(null);
   const [goalCategory, setGoalCategory] = useState<GoalCategory | null>(null);
@@ -86,38 +81,15 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     if (step > 1) setStep(step - 1);
   };
 
-  const handleFinish = async () => {
-    if (!identityArchetype || !goalCategory || !user) return;
+  const handleFinish = () => {
+    if (!identityArchetype || !goalCategory) return;
 
-    try {
-      setLoading(true);
-
-      const apiUrl = getApiUrl();
-      const response = await fetch(new URL(`/api/users/${user.id}/onboarding`, apiUrl).toString(), {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-session-id": user.id,
-        },
-        body: JSON.stringify({
-          identityArchetype,
-          primaryGoalCategory: goalCategory,
-          primaryGoalReason: goalReason.trim(),
-          preferredCadence: cadence,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to complete onboarding");
-      }
-
-      await refreshUser();
-      onComplete();
-    } catch (error) {
-      Alert.alert("Error", "Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    onComplete({
+      identityArchetype,
+      primaryGoalCategory: goalCategory,
+      primaryGoalReason: goalReason.trim(),
+      preferredCadence: cadence,
+    });
   };
 
   const progress = (step / 4) * 100;
@@ -179,7 +151,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               onBack={handleBack}
               onFinish={handleFinish}
               canFinish={canGoNextStep4}
-              loading={loading}
             />
           ) : null}
         </Animated.View>
@@ -371,7 +342,6 @@ function Step4Personalise({
   onBack,
   onFinish,
   canFinish,
-  loading,
 }: {
   identityArchetype: IdentityArchetype | null;
   goalCategory: GoalCategory | null;
@@ -383,7 +353,6 @@ function Step4Personalise({
   onBack: () => void;
   onFinish: () => void;
   canFinish: boolean;
-  loading: boolean;
 }) {
   const { theme } = useTheme();
   const identityLabel = identityArchetype
@@ -493,16 +462,10 @@ function Step4Personalise({
             { flex: 1, backgroundColor: canFinish ? theme.primary : theme.border },
           ]}
           onPress={onFinish}
-          disabled={!canFinish || loading}
+          disabled={!canFinish}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <ThemedText style={styles.primaryButtonText}>Start My Streak</ThemedText>
-              <Feather name="zap" size={18} color="#fff" />
-            </>
-          )}
+          <ThemedText style={styles.primaryButtonText}>Start My Streak</ThemedText>
+          <Feather name="zap" size={18} color="#fff" />
         </Pressable>
       </View>
     </View>

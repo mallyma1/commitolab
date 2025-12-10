@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import AuthScreen from "@/screens/AuthScreen";
 import CreateCommitmentScreen from "@/screens/CreateCommitmentScreen";
@@ -11,10 +12,13 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { Commitment } from "@/hooks/useCommitments";
+import { ONBOARDING_DATA_KEY, HAS_EVER_LOGGED_IN_KEY, type OnboardingData } from "@/types/onboarding";
+
+export type { OnboardingData };
 
 export type RootStackParamList = {
-  Auth: undefined;
   Onboarding: undefined;
+  Auth: undefined;
   Main: undefined;
   CreateCommitment: undefined;
   CheckIn: { commitment: Commitment };
@@ -25,16 +29,44 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isAuthenticated, isLoading, user, refreshUser } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { theme } = useTheme();
-  const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [shouldShowOnboarding, setShouldShowOnboarding] = useState<boolean | null>(null);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
-  const handleOnboardingComplete = useCallback(() => {
-    setOnboardingComplete(true);
-    refreshUser();
-  }, [refreshUser]);
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, []);
 
-  if (isLoading) {
+  const checkOnboardingStatus = async () => {
+    try {
+      const [onboardingData, hasEverLoggedIn] = await Promise.all([
+        AsyncStorage.getItem(ONBOARDING_DATA_KEY),
+        AsyncStorage.getItem(HAS_EVER_LOGGED_IN_KEY),
+      ]);
+      
+      const hasOnboardingData = !!onboardingData;
+      const isReturningUser = !!hasEverLoggedIn;
+      
+      setShouldShowOnboarding(!hasOnboardingData && !isReturningUser);
+    } catch (error) {
+      console.error("Error checking onboarding status:", error);
+      setShouldShowOnboarding(false);
+    } finally {
+      setCheckingOnboarding(false);
+    }
+  };
+
+  const handleOnboardingComplete = useCallback(async (data: OnboardingData) => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_DATA_KEY, JSON.stringify(data));
+      setShouldShowOnboarding(false);
+    } catch (error) {
+      console.error("Error saving onboarding data:", error);
+    }
+  }, []);
+
+  if (isLoading || checkingOnboarding) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.backgroundRoot }}>
         <ActivityIndicator size="large" color={theme.primary} />
@@ -42,23 +74,21 @@ export default function RootStackNavigator() {
     );
   }
 
-  const needsOnboarding = isAuthenticated && user && !user.onboardingCompleted && !onboardingComplete;
-
   return (
     <Stack.Navigator screenOptions={screenOptions}>
-      {!isAuthenticated ? (
-        <Stack.Screen
-          name="Auth"
-          component={AuthScreen}
-          options={{ headerShown: false }}
-        />
-      ) : needsOnboarding ? (
+      {shouldShowOnboarding && !isAuthenticated ? (
         <Stack.Screen
           name="Onboarding"
           options={{ headerShown: false }}
         >
           {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
         </Stack.Screen>
+      ) : !isAuthenticated ? (
+        <Stack.Screen
+          name="Auth"
+          component={AuthScreen}
+          options={{ headerShown: false }}
+        />
       ) : (
         <>
           <Stack.Screen
@@ -94,3 +124,5 @@ export default function RootStackNavigator() {
     </Stack.Navigator>
   );
 }
+
+export { ONBOARDING_DATA_KEY };

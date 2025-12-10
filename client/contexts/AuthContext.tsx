@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { ONBOARDING_DATA_KEY, HAS_EVER_LOGGED_IN_KEY, type OnboardingData } from "@/types/onboarding";
+
+export type { OnboardingData };
 
 interface User {
   id: string;
@@ -19,7 +22,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string) => Promise<void>;
+  login: (email: string, onboardingData?: OnboardingData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -50,13 +53,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string) => {
+  const login = async (email: string, onboardingData?: OnboardingData) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/login", { email });
+      const response = await apiRequest("POST", "/api/auth/login", { 
+        email,
+        onboarding: onboardingData,
+      });
       const data = await response.json();
       const userData = data.user;
       setUser(userData);
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      await AsyncStorage.setItem(HAS_EVER_LOGGED_IN_KEY, "true");
+      if (onboardingData) {
+        await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
+      }
     } catch (error) {
       console.error("Login error:", error);
       throw error;
