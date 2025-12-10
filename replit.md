@@ -34,9 +34,18 @@ Preferred communication style: Simple, everyday language.
 - Session ID passed in request headers for API authentication
 - No magic link or OAuth implemented yet (design guidelines mention future Supabase integration)
 
+### Onboarding Flow
+New users go through a 4-step onboarding flow after login:
+1. **Intro**: Welcome message and value proposition
+2. **Identity**: Choose an archetype (Athlete, Focused Creative, Disciplined Builder, Balanced Mind, Better Everyday)
+3. **Science**: Explains why streaks work (visual feedback, loss aversion, commitment effect)
+4. **Personalize**: Select goal category, enter reason, choose cadence
+- Auto-creates first commitment based on selections
+- Stored in user profile for personalization
+
 ### Data Models
 Three main entities defined in `shared/schema.ts`:
-- **Users**: id, email, displayName, avatarPreset
+- **Users**: id, email, displayName, avatarPreset, identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence, onboardingCompleted
 - **Commitments**: title, category, cadence (daily/weekly/monthly), date range, streak tracking
 - **CheckIns**: Links to commitment, optional note and media URL
 

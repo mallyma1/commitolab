@@ -16,7 +16,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { IdentityArchetype, GoalCategory } from "@shared/schema";
 
@@ -92,12 +92,24 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     try {
       setLoading(true);
 
-      await apiRequest("PUT", `/api/users/${user.id}/onboarding`, {
-        identityArchetype,
-        primaryGoalCategory: goalCategory,
-        primaryGoalReason: goalReason.trim(),
-        preferredCadence: cadence,
+      const apiUrl = getApiUrl();
+      const response = await fetch(new URL(`/api/users/${user.id}/onboarding`, apiUrl).toString(), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-session-id": user.id,
+        },
+        body: JSON.stringify({
+          identityArchetype,
+          primaryGoalCategory: goalCategory,
+          primaryGoalReason: goalReason.trim(),
+          preferredCadence: cadence,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to complete onboarding");
+      }
 
       await refreshUser();
       onComplete();

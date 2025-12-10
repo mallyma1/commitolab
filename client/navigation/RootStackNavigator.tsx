@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
@@ -6,6 +6,7 @@ import AuthScreen from "@/screens/AuthScreen";
 import CreateCommitmentScreen from "@/screens/CreateCommitmentScreen";
 import CheckInScreen from "@/screens/CheckInScreen";
 import CommitmentDetailScreen from "@/screens/CommitmentDetailScreen";
+import { OnboardingScreen } from "@/screens/OnboardingScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
@@ -13,6 +14,7 @@ import { Commitment } from "@/hooks/useCommitments";
 
 export type RootStackParamList = {
   Auth: undefined;
+  Onboarding: undefined;
   Main: undefined;
   CreateCommitment: undefined;
   CheckIn: { commitment: Commitment };
@@ -23,8 +25,14 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, refreshUser } = useAuth();
   const { theme } = useTheme();
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+
+  const handleOnboardingComplete = useCallback(() => {
+    setOnboardingComplete(true);
+    refreshUser();
+  }, [refreshUser]);
 
   if (isLoading) {
     return (
@@ -34,6 +42,8 @@ export default function RootStackNavigator() {
     );
   }
 
+  const needsOnboarding = isAuthenticated && user && !user.onboardingCompleted && !onboardingComplete;
+
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       {!isAuthenticated ? (
@@ -42,6 +52,13 @@ export default function RootStackNavigator() {
           component={AuthScreen}
           options={{ headerShown: false }}
         />
+      ) : needsOnboarding ? (
+        <Stack.Screen
+          name="Onboarding"
+          options={{ headerShown: false }}
+        >
+          {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
+        </Stack.Screen>
       ) : (
         <>
           <Stack.Screen
