@@ -5,6 +5,7 @@ import MainTabNavigator from "@/navigation/MainTabNavigator";
 import AuthScreen from "@/screens/AuthScreen";
 import CreateCommitmentScreen from "@/screens/CreateCommitmentScreen";
 import CheckInScreen from "@/screens/CheckInScreen";
+import CommitmentDetailScreen from "@/screens/CommitmentDetailScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
@@ -15,6 +16,7 @@ export type RootStackParamList = {
   Main: undefined;
   CreateCommitment: undefined;
   CheckIn: { commitment: Commitment };
+  CommitmentDetail: { commitment: Commitment };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -62,6 +64,13 @@ export default function RootStackNavigator() {
               presentation: "modal",
               headerTitle: "Check In",
             }}
+          />
+          <Stack.Screen
+            name="CommitmentDetail"
+            component={CommitmentDetailScreen}
+            options={({ route }) => ({
+              headerTitle: route.params.commitment.title,
+            })}
           />
         </>
       )}

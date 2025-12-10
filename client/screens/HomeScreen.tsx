@@ -32,7 +32,7 @@ export default function HomeScreen() {
 
   const handleSelectCommitment = useCallback(
     (commitment: Commitment) => {
-      navigation.navigate("CheckIn", { commitment });
+      navigation.navigate("CommitmentDetail", { commitment });
     },
     [navigation]
   );
