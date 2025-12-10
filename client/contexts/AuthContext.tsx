@@ -37,6 +37,7 @@ interface AuthContextType {
   login: (email: string, onboardingData?: OnboardingData) => Promise<void>;
   loginWithPhone: (phone: string, code: string, onboardingData?: OnboardingData) => Promise<void>;
   sendPhoneCode: (phone: string) => Promise<{ success: boolean; message?: string }>;
+  loginWithGoogle: (accessToken: string, onboardingData?: OnboardingData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -119,6 +120,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithGoogle = async (accessToken: string, onboardingData?: OnboardingData) => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/google", { 
+        accessToken,
+        onboarding: onboardingData,
+      });
+      const data = await response.json();
+      const userData = data.user;
+      setUser(userData);
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      await AsyncStorage.setItem(HAS_EVER_LOGGED_IN_KEY, "true");
+      if (onboardingData) {
+        await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
@@ -180,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         loginWithPhone,
         sendPhoneCode,
+        loginWithGoogle,
         logout,
         updateUser,
         refreshUser,

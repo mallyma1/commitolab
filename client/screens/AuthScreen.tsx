@@ -4,6 +4,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
+import { makeRedirectUri } from "expo-auth-session";
+import Constants from "expo-constants";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -17,10 +20,12 @@ WebBrowser.maybeCompleteAuthSession();
 
 type AuthMode = "select" | "email" | "phone";
 
+const GOOGLE_WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleWebClientId || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const { login, loginWithPhone, sendPhoneCode } = useAuth();
+  const { login, loginWithPhone, sendPhoneCode, loginWithGoogle } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>("select");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -29,9 +34,35 @@ export default function AuthScreen() {
   const [showVerification, setShowVerification] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
 
+  const [googleRequest, googleResponse, promptGoogleAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    scopes: ["profile", "email"],
+  });
+
   useEffect(() => {
     loadOnboardingData();
   }, []);
+
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      const { authentication } = googleResponse;
+      if (authentication?.accessToken) {
+        handleGoogleAuth(authentication.accessToken);
+      }
+    }
+  }, [googleResponse]);
+
+  const handleGoogleAuth = async (accessToken: string) => {
+    setIsLoading(true);
+    try {
+      await loginWithGoogle(accessToken, onboardingData || undefined);
+    } catch (error) {
+      console.error("Google auth error:", error);
+      Alert.alert("Sign In Failed", "Could not sign in with Google. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadOnboardingData = async () => {
     try {
@@ -117,17 +148,28 @@ export default function AuthScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
-    try {
+    if (!GOOGLE_WEB_CLIENT_ID) {
       Alert.alert(
         "Google Sign-In Setup Required",
-        "To enable Google Sign-In, add your GOOGLE_CLIENT_ID in the Secrets panel. Get your client ID from Google Cloud Console.",
+        "To enable Google Sign-In, add EXPO_PUBLIC_GOOGLE_CLIENT_ID in the Secrets panel. Get your client ID from Google Cloud Console.",
         [
           { text: "Use Email Instead", onPress: () => setAuthMode("email") },
           { text: "Cancel", style: "cancel" },
         ]
       );
+      return;
+    }
+
+    if (!googleRequest) {
+      Alert.alert("Loading", "Google Sign-In is initializing. Please try again.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await promptGoogleAsync();
     } catch (error) {
+      console.error("Google sign-in error:", error);
       Alert.alert("Sign In Failed", "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
