@@ -275,6 +275,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/check-ins/today", async (req, res) => {
+    try {
+      const userId = req.headers["x-session-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const checkIns = await storage.getTodayCheckIns(userId, today);
+      return res.json(checkIns);
+    } catch (error) {
+      console.error("Get today's check-ins error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/analytics", async (req, res) => {
     try {
       const userId = req.headers["x-session-id"] as string;

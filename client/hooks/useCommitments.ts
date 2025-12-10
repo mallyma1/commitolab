@@ -143,6 +143,25 @@ export function useAnalytics() {
   });
 }
 
+export function useTodayCheckIns() {
+  const { user } = useAuth();
+  const baseUrl = getApiUrl();
+
+  return useQuery<CheckIn[]>({
+    queryKey: ["/api/check-ins/today"],
+    queryFn: async () => {
+      const url = new URL("/api/check-ins/today", baseUrl);
+      const response = await fetch(url, {
+        headers: { "x-session-id": user?.id || "" },
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch today's check-ins");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+}
+
 export function useCreateCheckIn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -176,6 +195,7 @@ export function useCreateCheckIn() {
         queryKey: ["/api/commitments", variables.commitmentId, "check-ins"],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/check-ins/today"] });
     },
   });
 }

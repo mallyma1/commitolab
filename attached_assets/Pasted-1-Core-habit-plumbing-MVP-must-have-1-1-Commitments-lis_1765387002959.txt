@@ -1,0 +1,240 @@
+1. Core habit plumbing (MVP must-have)
+1.1 Commitments list and basic management
+
+You already insert one default commitment after onboarding. Now:
+
+Fetch all active commitments for user.id
+
+Display them on MainDashboard as cards
+
+For each commitment show:
+
+Title
+
+Cadence (daily)
+
+Current streak
+
+Last check in date
+
+Add:
+
+“Add new commitment” button
+
+Optional “Pause” / “Archive” toggle
+
+Backend:
+
+Use existing commitments table
+
+Keep all writes client side for now (via Supabase JS client)
+
+Front-end tasks:
+
+CommitmentCard component
+
+CreateCommitmentModal or slide-up sheet
+
+Simple edit (title only) in v1 or skip edits
+
+1.2 Check in flow (no media, then with media)
+
+Phase 1 (text only):
+
+Add a “Check in” button on each CommitmentCard
+
+On press:
+
+Insert row into checkins:
+
+commitment_id, user_id, timestamp, note?, late_submission = false
+
+Immediately reflect this in UI:
+
+“Checked in today” state
+
+Update current streak locally
+
+Phase 2 (photo proof):
+
+Create Supabase storage buckets (if not done):
+
+checkins (public = true)
+
+In app:
+
+File picker on web (and camera on mobile later)
+
+Upload to checkins bucket with path: userId/commitmentId/timestamp.jpg
+
+Store media_url and media_type in checkins row
+
+Show thumbnail on the commitment detail view or in a timeline.
+
+1.3 Streak engine (daily logic)
+
+You need the streak to actually mean something.
+
+Simplest approach:
+
+When loading commitments, also load recent check ins for each.
+
+Compute current streak client-side based on dates:
+
+Count how many consecutive days, ending today or yesterday, have check ins.
+
+Optionally write back current_streak and longest_streak fields to commitments.
+
+Later you can move this to:
+
+Edge function / scheduled job on Supabase to recompute daily
+
+Or a “check-in pipeline” that updates the streak atomically on every insert.
+
+For v1, client-side compute is fine.
+
+2. Dashboard and narrative
+
+Once a user has:
+
+Onboarded
+
+At least one commitment
+
+At least one check in
+
+the MainDashboard needs to feel alive.
+
+Minimum:
+
+Hero block
+
+“Good to see you, [name].”
+
+“You are building: [focus_area]”
+
+“Current streak: X days”
+
+Today view
+
+List of commitments with “Done / Check in” states for today
+
+Timeline / history (bare bones)
+
+List last 7–14 days of check ins with date and commitment name
+
+Identity reflection
+
+Short line using their tone and motivation:
+
+Direct: “You said you were done slipping.”
+
+Calm: “Small steps, consistently, is enough.”
+
+Data: “You’ve checked in X of last Y days.”
+
+Everything else can wait.
+
+3. Auth + security hardening
+
+Before you open to real people:
+
+3.1 RLS policies double-check
+
+On users, commitments, checkins, notifications, circles (if used):
+
+Ensure only auth.uid() = user_id rows are returned for private data
+
+Public or social tables (public streaks, public profiles) can have wider access, but keep it explicit.
+
+3.2 SSO smoke tests
+
+Manually test:
+
+Email magic link
+
+Google
+
+Microsoft
+
+Phone (if Twilio fully configured)
+
+Confirm:
+
+Each path creates a users row
+
+Fields are populated consistently (email, provider, created_at)
+
+Onboarding runs for new users regardless of provider
+
+4. Retention rails (lightweight but essential)
+
+You do not need full gamification yet, but you want some scaffolding.
+
+4.1 Reminders
+
+Short term:
+
+Just email reminders, triggered client side:
+
+User chooses time windows (“Morning / Evening”) during onboarding or in settings
+
+Store in users table
+
+Add a simple Supabase scheduled function or external cron later to send reminder emails
+
+For now, even a “Remind me” toggle stored as a field is enough while you design the cron.
+
+4.2 “You missed a day” copy
+
+When computing streak:
+
+Detect when they missed yesterday
+
+Offer a gentle message in their tone:
+
+Direct: “You dropped the ball yesterday. Show up today.”
+
+Calm: “You missed a day. That is human. Come back in today.”
+
+No complicated logic required; just aligning copy to your tone engine.
+
+5. Analytics and basic product metrics
+
+Even at MVP level, track:
+
+Users
+
+Commitments
+
+Check ins
+
+Option A: simple analytics table in Supabase
+
+Log key events: user_created, onboarding_completed, commitment_created, checkin_created
+
+Option B: drop in PostHog or similar later.
+
+What matters now:
+
+You can see how many users finish onboarding
+
+How many users create at least 1 check in
+
+How many days they come back
+
+6. Visual polish and small touches
+
+After the above plumbing is in and working end-to-end:
+
+Add micro animation on “Check in” button press (Framer Motion scale +1, then snap back)
+
+Add streak badge that subtly pulses when you are on a streak
+
+Add an empty state for:
+
+No commitments
+
+No check ins yet
+
+Keep it stoic, not cartoonish.

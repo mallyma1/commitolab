@@ -10,7 +10,7 @@ import {
   type InsertCheckIn,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, lt, sql } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -141,6 +141,23 @@ export class DatabaseStorage implements IStorage {
       .values({ ...data, userId })
       .returning();
     return checkIn;
+  }
+
+  async getTodayCheckIns(userId: string, today: string): Promise<CheckIn[]> {
+    const startOfDay = new Date(today + "T00:00:00.000Z");
+    const endOfDay = new Date(today + "T23:59:59.999Z");
+    
+    return db
+      .select()
+      .from(checkIns)
+      .where(
+        and(
+          eq(checkIns.userId, userId),
+          gte(checkIns.createdAt, startOfDay),
+          lt(checkIns.createdAt, endOfDay)
+        )
+      )
+      .orderBy(desc(checkIns.createdAt));
   }
 }
 
