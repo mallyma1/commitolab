@@ -5,6 +5,24 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { insertCommitmentSchema, insertCheckInSchema } from "@shared/schema";
 
+function buildDefaultCommitmentTitle(identity: string, goalCategory: string): string {
+  const base = goalCategory === "custom" ? "My streak" : goalCategory.replace("_", " ");
+  const capitalizedBase = base.charAt(0).toUpperCase() + base.slice(1);
+  
+  switch (identity) {
+    case "athlete":
+      return `${capitalizedBase} with athlete-level discipline`;
+    case "focused_creative":
+      return `${capitalizedBase} with focused deep work`;
+    case "disciplined_builder":
+      return `${capitalizedBase} with consistent execution`;
+    case "balanced_mind":
+      return `${capitalizedBase} for a calmer mind`;
+    default:
+      return `${capitalizedBase} every day`;
+  }
+}
+
 declare global {
   namespace Express {
     interface Request {
@@ -73,6 +91,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json(user);
     } catch (error) {
       console.error("Update user error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/:id/onboarding", async (req, res) => {
+    try {
+      const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence } = req.body;
+      
+      const user = await storage.updateUserOnboarding(req.params.id, {
+        identityArchetype,
+        primaryGoalCategory,
+        primaryGoalReason,
+        preferredCadence,
+      });
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const threeMonthsLater = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      
+      const commitmentTitle = buildDefaultCommitmentTitle(identityArchetype, primaryGoalCategory);
+      
+      try {
+        await storage.createCommitment(req.params.id, {
+          title: commitmentTitle,
+          category: primaryGoalCategory || "fitness",
+          cadence: preferredCadence || "daily",
+          startDate: today,
+          endDate: threeMonthsLater,
+        });
+      } catch (commitError) {
+        console.error("Failed to auto-create commitment:", commitError);
+      }
+
+      return res.json(user);
+    } catch (error) {
+      console.error("Update onboarding error:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });

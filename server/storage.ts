@@ -54,6 +54,29 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async updateUserOnboarding(
+    id: string,
+    data: {
+      identityArchetype: string;
+      primaryGoalCategory: string;
+      primaryGoalReason: string;
+      preferredCadence: string;
+    }
+  ): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({
+        identityArchetype: data.identityArchetype,
+        primaryGoalCategory: data.primaryGoalCategory,
+        primaryGoalReason: data.primaryGoalReason,
+        preferredCadence: data.preferredCadence,
+        onboardingCompleted: true,
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
+  }
+
   async getCommitments(userId: string): Promise<Commitment[]> {
     return db
       .select()

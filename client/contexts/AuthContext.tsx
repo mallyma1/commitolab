@@ -7,6 +7,11 @@ interface User {
   email: string;
   displayName: string | null;
   avatarPreset: string | null;
+  identityArchetype: string | null;
+  primaryGoalCategory: string | null;
+  primaryGoalReason: string | null;
+  preferredCadence: string | null;
+  onboardingCompleted: boolean;
   createdAt: string;
 }
 

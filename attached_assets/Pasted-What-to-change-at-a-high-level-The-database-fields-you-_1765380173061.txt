@@ -1,0 +1,694 @@
+What to change at a high level
+
+The database fields you should add
+
+A full OnboardingFlow React component to paste in
+
+How to wire onboarding into your main app routing
+
+What you can safely delete from the old onboarding
+
+You can then tweak styling to match your current UI.
+
+1. High level changes
+
+You want the app to:
+
+Greet users with emotion and purpose
+
+Ask who they are becoming
+
+Show why StreakProof is scientifically designed
+
+Capture a meaningful reason and goal
+
+Guide them into creating their first commitment
+
+So at a high level:
+
+Replace your current first screen after login with OnboardingFlow
+
+Gate the dashboard so it only shows after onboarding is complete
+
+Save onboarding data to users table and use it later in copy
+
+2. Database fields to support personalisation
+
+In Supabase, update your users table to add:
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS identity_archetype TEXT,
+ADD COLUMN IF NOT EXISTS primary_goal_category TEXT,
+ADD COLUMN IF NOT EXISTS primary_goal_reason TEXT,
+ADD COLUMN IF NOT EXISTS preferred_cadence TEXT,
+ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+
+
+You run this once in the SQL editor.
+
+3. New OnboardingFlow component
+
+Create a new file in your React app, for example:
+
+src/components/OnboardingFlow.tsx
+
+Paste this and then adjust styling to your design system.
+
+import React, { useState } from "react";
+import { supabase } from "../lib/supabaseClient";
+
+type User = {
+  id: string;
+  email?: string;
+};
+
+type OnboardingFlowProps = {
+  user: User;
+  onComplete: () => void;
+};
+
+type IdentityArchetype =
+  | "athlete"
+  | "focused_creative"
+  | "disciplined_builder"
+  | "balanced_mind"
+  | "better_everyday";
+
+const archetypeLabels: Record<IdentityArchetype, string> = {
+  athlete: "The Athlete",
+  focused_creative: "The Focused Creative",
+  disciplined_builder: "The Disciplined Builder",
+  balanced_mind: "The Balanced Mind",
+  better_everyday: "The Better Everyday",
+};
+
+const archetypeDescriptions: Record<IdentityArchetype, string> = {
+  athlete: "Driven by discipline, progress and intentional effort.",
+  focused_creative: "Seeks clarity, deep focus and space to create their best work.",
+  disciplined_builder: "Values structure, long term gains and steady execution.",
+  balanced_mind: "Wants peace, mental clarity and a healthier internal world.",
+  better_everyday: "Small upgrades each day that compound into a different life.",
+};
+
+const goalCategories = [
+  "Fitness",
+  "Learning",
+  "Work",
+  "Creativity",
+  "Mental health",
+  "Nutrition",
+  "Personal improvement",
+  "Custom",
+] as const;
+
+type GoalCategory = (typeof goalCategories)[number];
+
+const cadences = ["Daily", "Weekly", "Custom"] as const;
+type Cadence = (typeof cadences)[number];
+
+export function OnboardingFlow({ user, onComplete }: OnboardingFlowProps) {
+  const [step, setStep] = useState<number>(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [identityArchetype, setIdentityArchetype] =
+    useState<IdentityArchetype | null>(null);
+  const [goalCategory, setGoalCategory] = useState<GoalCategory | null>(null);
+  const [goalReason, setGoalReason] = useState("");
+  const [cadence, setCadence] = useState<Cadence>("Daily");
+
+  const canGoNextStep1 = true;
+  const canGoNextStep2 = !!identityArchetype;
+  const canGoNextStep3 = true;
+  const canGoNextStep4 = !!goalCategory && goalReason.trim().length >= 10;
+  const canFinish = canGoNextStep4;
+
+  const handleNext = () => {
+    if (step === 1 && canGoNextStep1) setStep(2);
+    if (step === 2 && canGoNextStep2) setStep(3);
+    if (step === 3 && canGoNextStep3) setStep(4);
+  };
+
+  const handleBack = () => {
+    if (step > 1) setStep(step - 1);
+  };
+
+  const handleFinish = async () => {
+    if (!canFinish || !identityArchetype || !goalCategory) return;
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          identity_archetype: identityArchetype,
+          primary_goal_category: goalCategory,
+          primary_goal_reason: goalReason.trim(),
+          preferred_cadence: cadence.toLowerCase(),
+          onboarding_completed: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
+
+      if (updateError) {
+        setError("Something went wrong saving your setup. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Optionally auto create a starter commitment
+      const title = buildDefaultCommitmentTitle(identityArchetype, goalCategory);
+      const today = new Date().toISOString().slice(0, 10);
+
+      const { error: commitmentError } = await supabase.from("commitments").insert({
+        user_id: user.id,
+        title,
+        description: goalReason.trim().slice(0, 255),
+        category: goalCategory,
+        cadence: cadence.toLowerCase(),
+        start_date: today,
+        end_date: null,
+        privacy: "solo",
+        proof_type: "photo",
+        active: true,
+        current_streak: 0,
+        longest_streak: 0,
+        streak_integrity: true,
+        chain_verified: false,
+        created_at: new Date().toISOString(),
+      });
+
+      if (commitmentError) {
+        // Not fatal for onboarding, but log
+        console.error("Failed to auto create commitment", commitmentError);
+      }
+
+      setLoading(false);
+      onComplete();
+    } catch (e) {
+      console.error(e);
+      setError("Unexpected error during onboarding. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-slate-950 to-black text-white px-4">
+      <div className="w-full max-w-xl rounded-3xl bg-black/40 border border-white/10 p-6 md:p-8 shadow-2xl backdrop-blur">
+        <ProgressBar step={step} />
+
+        {step === 1 && <Step1Intro onNext={handleNext} />}
+
+        {step === 2 && (
+          <Step2Identity
+            identityArchetype={identityArchetype}
+            onSelect={setIdentityArchetype}
+            onNext={handleNext}
+            onBack={handleBack}
+            canContinue={canGoNextStep2}
+          />
+        )}
+
+        {step === 3 && (
+          <Step3Science
+            onNext={handleNext}
+            onBack={handleBack}
+            canContinue={canGoNextStep3}
+          />
+        )}
+
+        {step === 4 && (
+          <Step4Personalise
+            identityArchetype={identityArchetype}
+            goalCategory={goalCategory}
+            goalReason={goalReason}
+            cadence={cadence}
+            onSetGoalCategory={setGoalCategory}
+            onSetGoalReason={setGoalReason}
+            onSetCadence={setCadence}
+            onBack={handleBack}
+            onFinish={handleFinish}
+            canFinish={canFinish}
+            loading={loading}
+          />
+        )}
+
+        {error && (
+          <p className="mt-4 text-sm text-red-400 text-center">{error}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ step }: { step: number }) {
+  const percentage = (step / 4) * 100;
+  return (
+    <div className="mb-6">
+      <div className="flex justify-between items-center mb-2">
+        <p className="text-xs uppercase tracking-[0.18em] text-white/60">
+          StreakProof setup
+        </p>
+        <p className="text-xs text-white/70">
+          Step {step} of 4
+        </p>
+      </div>
+      <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 transition-all"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Step1Intro({ onNext }: { onNext: () => void }) {
+  return (
+    <div>
+      <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
+        Let us build the version of you that shows up.
+      </h1>
+      <p className="text-sm md:text-base text-white/80 mb-6">
+        Most people break promises to themselves. You are here because you are
+        done being one of them. StreakProof turns your commitments into
+        visible, verifiable streaks that are harder to abandon.
+      </p>
+      <ul className="space-y-2 text-sm text-white/80 mb-8">
+        <li>• Capture your promise with one clear commitment.</li>
+        <li>• Prove you showed up with visual check ins.</li>
+        <li>• Use streak psychology to stay consistent.</li>
+      </ul>
+      <button
+        onClick={onNext}
+        className="w-full py-3 rounded-2xl bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 text-sm font-semibold shadow-lg shadow-purple-500/25 active:scale-95 transition-transform"
+      >
+        Let us begin
+      </button>
+    </div>
+  );
+}
+
+type Step2Props = {
+  identityArchetype: IdentityArchetype | null;
+  onSelect: (value: IdentityArchetype) => void;
+  onNext: () => void;
+  onBack: () => void;
+  canContinue: boolean;
+};
+
+function Step2Identity({
+  identityArchetype,
+  onSelect,
+  onNext,
+  onBack,
+  canContinue,
+}: Step2Props) {
+  return (
+    <div>
+      <h2 className="text-2xl md:text-3xl font-semibold mb-2">
+        Which version of you are you becoming?
+      </h2>
+      <p className="text-sm text-white/80 mb-5">
+        StreakProof works best when it reflects the identity you are stepping
+        into, not just a task list.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        {(Object.keys(archetypeLabels) as IdentityArchetype[]).map((key) => {
+          const selected = identityArchetype === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSelect(key)}
+              className={[
+                "text-left p-3 rounded-2xl border text-sm transition-all",
+                selected
+                  ? "border-purple-400 bg-purple-500/10"
+                  : "border-white/10 hover:border-purple-400/70 hover:bg-white/5",
+              ].join(" ")}
+            >
+              <p className="font-semibold mb-1">
+                {archetypeLabels[key]}
+              </p>
+              <p className="text-xs text-white/80">
+                {archetypeDescriptions[key]}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex justify-between gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-4 py-2 rounded-xl border border-white/15 text-xs text-white/80 hover:bg-white/5"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={!canContinue}
+          className="px-5 py-2 rounded-xl bg-white text-xs font-semibold text-black disabled:bg-white/50 disabled:text-black/60"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type Step3Props = {
+  onNext: () => void;
+  onBack: () => void;
+  canContinue: boolean;
+};
+
+function Step3Science({ onNext, onBack, canContinue }: Step3Props) {
+  return (
+    <div>
+      <h2 className="text-2xl md:text-3xl font-semibold mb-2">
+        Why this method works.
+      </h2>
+      <p className="text-sm text-white/80 mb-5">
+        StreakProof is built on behavioural science, not wishful thinking.
+      </p>
+      <div className="space-y-3 mb-6">
+        <ScienceCard
+          title="Visual proof keeps habits alive."
+          description="Seeing your own evidence builds a feedback loop that makes progress feel real and harder to ignore."
+          tag="Visual feedback"
+        />
+        <ScienceCard
+          title="Streaks use loss aversion."
+          description="Once you have a streak, breaking it feels like a loss, so your brain fights harder to keep it alive."
+          tag="Streak psychology"
+        />
+        <ScienceCard
+          title="Accountability boosts success rates."
+          description="When goals are recorded and visible, people are more likely to follow through than keeping them in their head."
+          tag="Commitment effect"
+        />
+      </div>
+      <div className="flex justify-between gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-4 py-2 rounded-xl border border-white/15 text-xs text-white/80 hover:bg-white/5"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={!canContinue}
+          className="px-5 py-2 rounded-xl bg-white text-xs font-semibold text-black disabled:bg-white/50 disabled:text-black/60"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type ScienceCardProps = {
+  title: string;
+  description: string;
+  tag: string;
+};
+
+function ScienceCard({ title, description, tag }: ScienceCardProps) {
+  return (
+    <div className="p-3 rounded-2xl border border-white/15 bg-white/4">
+      <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/10 text-[0.65rem] uppercase tracking-[0.16em] mb-2">
+        {tag}
+      </div>
+      <p className="text-sm font-semibold mb-1">
+        {title}
+      </p>
+      <p className="text-xs text-white/75">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+type Step4Props = {
+  identityArchetype: IdentityArchetype | null;
+  goalCategory: GoalCategory | null;
+  goalReason: string;
+  cadence: Cadence;
+  onSetGoalCategory: (val: GoalCategory) => void;
+  onSetGoalReason: (val: string) => void;
+  onSetCadence: (val: Cadence) => void;
+  onBack: () => void;
+  onFinish: () => void;
+  canFinish: boolean;
+  loading: boolean;
+};
+
+function Step4Personalise({
+  identityArchetype,
+  goalCategory,
+  goalReason,
+  cadence,
+  onSetGoalCategory,
+  onSetGoalReason,
+  onSetCadence,
+  onBack,
+  onFinish,
+  canFinish,
+  loading,
+}: Step4Props) {
+  const identityLabel = identityArchetype
+    ? archetypeLabels[identityArchetype]
+    : "The version of you that shows up";
+
+  return (
+    <div>
+      <h2 className="text-2xl md:text-3xl font-semibold mb-2">
+        Make this personal.
+      </h2>
+      <p className="text-sm text-white/80 mb-4">
+        You are building momentum as {identityLabel.toLowerCase()}. Let us
+        anchor it to one clear habit that matters.
+      </p>
+
+      <div className="mb-4">
+        <p className="text-xs font-semibold text-white/70 mb-2">
+          What do you want to get consistent with first?
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {goalCategories.map((cat) => {
+            const selected = goalCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => onSetGoalCategory(cat)}
+                className={[
+                  "px-3 py-1.5 rounded-full text-xs border transition-all",
+                  selected
+                    ? "border-purple-400 bg-purple-500/15"
+                    : "border-white/15 hover:border-purple-400/70 hover:bg-white/5",
+                ].join(" ")}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <p className="text-xs font-semibold text-white/70 mb-2">
+          Why does this matter to you?
+        </p>
+        <textarea
+          value={goalReason}
+          onChange={(e) => onSetGoalReason(e.target.value)}
+          placeholder="Be honest with yourself. For example: I am tired of feeling like I start things and never finish them."
+          className="w-full min-h-[80px] rounded-2xl bg-white/5 border border-white/15 text-xs px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-400"
+        />
+        <p className="text-[0.7rem] text-white/60 mt-1">
+          At least ten characters so we can echo this back to you when it gets
+          hard.
+        </p>
+      </div>
+
+      <div className="mb-5">
+        <p className="text-xs font-semibold text-white/70 mb-2">
+          How often do you want to show up?
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {cadences.map((c) => {
+            const selected = cadence === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => onSetCadence(c)}
+                className={[
+                  "px-3 py-1.5 rounded-full text-xs border transition-all",
+                  selected
+                    ? "border-purple-400 bg-purple-500/15"
+                    : "border-white/15 hover:border-purple-400/70 hover:bg-white/5",
+                ].join(" ")}
+              >
+                {c}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex justify-between gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="px-4 py-2 rounded-xl border border-white/15 text-xs text-white/80 hover:bg-white/5"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={onFinish}
+          disabled={!canFinish || loading}
+          className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 text-xs font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {loading ? "Saving your setup..." : "Start my streak"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function buildDefaultCommitmentTitle(
+  identity: IdentityArchetype,
+  goalCategory: GoalCategory
+): string {
+  const base = goalCategory === "Custom" ? "My streak" : goalCategory;
+  if (identity === "athlete") return `${base} with athlete level discipline`;
+  if (identity === "focused_creative") return `${base} with focused deep work`;
+  if (identity === "disciplined_builder") return `${base} with consistent execution`;
+  if (identity === "balanced_mind") return `${base} for a calmer mind`;
+  return `${base} every day`;
+}
+
+
+This component:
+
+Shows a four step flow
+
+Captures identity, goal, reason, cadence
+
+Saves everything to users
+
+Auto creates a first commitment so the dashboard is not empty
+
+Calls onComplete so you can switch to the main app
+
+4. Wire onboarding into your main app
+
+Wherever you currently decide what to show after login (for example in App.tsx or DashboardWrapper.tsx), update the logic:
+
+// Example shape, adapt to your structure
+import React, { useEffect, useState } from "react";
+import { supabase } from "./lib/supabaseClient";
+import { OnboardingFlow } from "./components/OnboardingFlow";
+import { Dashboard } from "./components/Dashboard";
+
+export function AppRoot() {
+  const [user, setUser] = useState<any | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      setUser(authData.user);
+
+      const { data: userRows } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", authData.user.id)
+        .single();
+
+      setProfile(userRows);
+      setLoading(false);
+    };
+
+    init();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        {/* Your login screen goes here */}
+        Please sign in.
+      </div>
+    );
+  }
+
+  const onboardingDone = profile?.onboarding_completed;
+
+  if (!onboardingDone) {
+    return (
+      <OnboardingFlow
+        user={{ id: user.id, email: user.email }}
+        onComplete={() => {
+          // Refresh profile after onboarding
+          window.location.reload();
+        }}
+      />
+    );
+  }
+
+  return <Dashboard user={user} profile={profile} />;
+}
+
+
+Result:
+
+New users land on onboarding after login
+
+Existing users who do not have onboarding_completed see onboarding once
+
+After saving, they are taken to the dashboard
+
+5. What you can delete from the old onboarding
+
+You can safely remove:
+
+Any boring “Welcome” screen that only explains features
+
+Any generic three bullets that show “track habits, build streaks, share”
+
+Any flat name or avatar only step that does not tie back to identity or motivation
+
+Replace all of that with the new flow above.
+
+If you paste in:
+
+The SQL update for users
+
+The OnboardingFlow component
+
+The AppRoot gate logic
+
+your onboarding will instantly feel more emotional, personalised, and grounded in behavioural principles, without touching the rest of your streak logic.

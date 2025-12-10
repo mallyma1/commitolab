@@ -3,6 +3,28 @@ import { pgTable, text, varchar, integer, boolean, date, timestamp } from "drizz
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const identityArchetypes = [
+  "athlete",
+  "focused_creative",
+  "disciplined_builder",
+  "balanced_mind",
+  "better_everyday",
+] as const;
+
+export const goalCategories = [
+  "fitness",
+  "learning",
+  "work",
+  "creativity",
+  "mental_health",
+  "nutrition",
+  "personal_improvement",
+  "custom",
+] as const;
+
+export type IdentityArchetype = (typeof identityArchetypes)[number];
+export type GoalCategory = (typeof goalCategories)[number];
+
 export const users = pgTable("users", {
   id: varchar("id")
     .primaryKey()
@@ -10,6 +32,11 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   displayName: text("display_name"),
   avatarPreset: text("avatar_preset").default("yoga"),
+  identityArchetype: text("identity_archetype"),
+  primaryGoalCategory: text("primary_goal_category"),
+  primaryGoalReason: text("primary_goal_reason"),
+  preferredCadence: text("preferred_cadence"),
+  onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
