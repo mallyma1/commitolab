@@ -1,0 +1,963 @@
+Got it. We keep the psychology, but make the onboarding feel like a cinematic, stoic sequence with:
+
+Very little text
+
+Big, full-screen visuals
+
+Tap/press interactions (chips, badges, multi-select)
+
+Smooth progression like scenes in a movie
+
+I’ll do three things:
+
+Redesign the onboarding flow (screen by screen, visually)
+
+Define the multi-select logic and tone personalisation
+
+Give you React/TSX building blocks you can drop into your existing flow
+
+You can keep your current Supabase/auth plumbing as is.
+
+1. New onboarding structure (cinematic, low-text)
+
+Think of onboarding as 4 scenes, each full screen, minimal copy, big interaction.
+
+Scene 1 – “Cold Open” (no explanation, just energy)
+
+Goal: instantly grab, feel like a trailer.
+
+Layout:
+
+Full-screen dark gradient background
+
+Center: bold line, 2–3 words
+
+Sub line: one short sentence
+
+Bottom: big primary button
+
+Copy example:
+
+Heading:
+Show up.
+
+Sub:
+We turn your promises into proof.
+
+CTA:
+Step in
+
+Small progress indicator at top (1/4).
+
+No extra bullets. Let the visuals work: subtle animated radial behind heading, small particles or glow behind button.
+
+Scene 2 – “What are you here to change?” (multi-select)
+
+Goal: collect motivations + tone using visuals and taps.
+
+Layout:
+
+Top: one short line
+
+Middle: 2x3 grid of large “cards” with icons/abstract shapes
+
+Each card is selectable, multi-select
+
+Copy:
+
+Title:
+What brought you here today?
+
+Cards (multi-select allowed):
+
+Discipline – “I want to stop slipping.”
+
+Energy – “I want to feel stronger.”
+
+Focus – “I want fewer distractions.”
+
+Calm – “I want a quieter mind.”
+
+Momentum – “I want progress every day.”
+
+Rebuild – “I am coming back from a low.”
+
+Visuals:
+
+Each card has a simple abstract icon (line art) instead of walls of text
+
+Selected state: thicker border, subtle glow, tiny check icon
+
+CTA:
+Continue (disabled until at least 1 selected)
+
+Progress: 2/4.
+
+Scene 3 – “How do you want to be spoken to?” (tone selector, multi-select)
+
+Goal: pick tone/style but with almost no text.
+
+Layout:
+
+Top:
+How should StreakProof speak to you?
+
+Row of pill buttons (multi-select or single, you decide):
+
+Direct – “No fluff.”
+
+Calm – “Soft and steady.”
+
+Data – “Facts and numbers.”
+
+Hype – “Push me.”
+
+Quiet – “Minimal, clean.”
+
+This drives tone profile.
+
+You can preselect one based on previous choices (e.g. Discipline + Focus → Direct + Data).
+
+CTA:
+Next
+
+Progress: 3/4.
+
+Scene 4 – “Anchor habit” (single focal commitment)
+
+Goal: set one core area and their “why”, but still visually-led.
+
+Layout:
+
+Left 60 percent:
+
+Title:
+What are we building first?
+
+Icon grid (single select):
+
+Body – Fitness/health
+
+Mind – Mental health/meditation
+
+Work – Deep work/output
+
+Craft – Learning/skills
+
+Life – Routines/organisation
+
+Right (or below on mobile):
+
+Small text area for “Why this matters”:
+Placeholder:
+Write one honest sentence about why this matters.
+
+No explanation, no paragraphs.
+
+CTA:
+Start my streak
+
+When pressed:
+
+Save motivations, tone, focus_area, reason to users
+
+Auto-create first commitment (like before)
+
+Progress: 4/4, then fade into dashboard with a hero “title card”:
+
+Scene 1 of your new streak.
+Small text: We’ll protect this: [body • daily • photo proof].
+
+2. Data model + tone logic (simple and flexible)
+
+Extend your users table like this:
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS motivations TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS tone_preferences TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS focus_area TEXT,
+ADD COLUMN IF NOT EXISTS primary_goal_reason TEXT,
+ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+
+
+Example stored values:
+
+motivations = {discipline, momentum}
+
+tone_preferences = {direct, data}
+
+focus_area = 'body'
+
+primary_goal_reason = 'I am tired of starting strong and falling off.'
+
+Tone engine (simple rules):
+
+If motivations includes "Discipline" or "Rebuild" → base tone = "direct"
+If motivations includes "Calm" → base tone = "calm"
+If motivations includes "Focus", "Momentum" → base tone = "data/minimal"
+Override with any explicit tone selections in tone_preferences.
+
+
+You can later use this to swap copy templates:
+
+const tone = decideTone({ motivations, tonePreferences });
+
+const copySets = {
+  direct: {
+    welcome: "No more half-measures.",
+    nudge: "You said you were done slipping. Check in."
+  },
+  calm: {
+    welcome: "Let us rebuild gently.",
+    nudge: "One small step today is enough."
+  },
+  data: {
+    welcome: "We track what matters.",
+    nudge: "Keep your streak data clean. Log today."
+  },
+  hype: {
+    welcome: "Time to show up for yourself.",
+    nudge: "Future you is watching. Hit your check-in."
+  },
+  quiet: {
+    welcome: "Fewer words. More action.",
+    nudge: "A simple check-in. Then get back to life."
+  }
+};
+
+3. React implementation (lean building blocks)
+
+Below is a stripped-down onboarding shell you can adapt from your current OnboardingFlow. Focused on visuals, multi-select, minimal text.
+
+3.1 Overall shell
+import { useState } from "react";
+import { supabase } from "../lib/supabaseClient";
+
+type OnboardingProps = {
+  user: { id: string; email?: string | null };
+  onComplete: () => void;
+};
+
+export function Onboarding({ user, onComplete }: OnboardingProps) {
+  const [step, setStep] = useState(1);
+
+  const [motivations, setMotivations] = useState<string[]>([]);
+  const [tonePrefs, setTonePrefs] = useState<string[]>([]);
+  const [focusArea, setFocusArea] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+
+  const toggleInArray = (value: string, arr: string[], setArr: (v: string[]) => void) => {
+    if (arr.includes(value)) {
+      setArr(arr.filter((x) => x !== value));
+    } else {
+      setArr([...arr, value]);
+    }
+  };
+
+  const canContinue =
+    (step === 1) ||
+    (step === 2 && motivations.length > 0) ||
+    (step === 3 && tonePrefs.length > 0) ||
+    (step === 4 && focusArea && reason.trim().length >= 5);
+
+  const goNext = () => {
+    if (step < 4 && canContinue) setStep(step + 1);
+  };
+
+  const goBack = () => {
+    if (step > 1) setStep(step - 1);
+  };
+
+  const handleFinish = async () => {
+    if (!focusArea || reason.trim().length < 5) return;
+
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+
+    await supabase.from("users").update({
+      motivations,
+      tone_preferences: tonePrefs,
+      focus_area: focusArea,
+      primary_goal_reason: reason.trim(),
+      onboarding_completed: true,
+      updated_at: now
+    }).eq("id", user.id);
+
+    await supabase.from("commitments").insert({
+      user_id: user.id,
+      title: buildDefaultTitle(focusArea, motivations),
+      description: reason.trim().slice(0, 255),
+      category: focusArea,
+      cadence: "daily",
+      start_date: today,
+      end_date: null,
+      privacy: "solo",
+      proof_type: "photo",
+      active: true,
+      current_streak: 0,
+      longest_streak: 0,
+      streak_integrity: true,
+      chain_verified: false,
+      created_at: now
+    });
+
+    onComplete();
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#050509] via-[#050509] to-[#050509] text-white flex items-center justify-center px-4">
+      <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-white/2 backdrop-blur-xl p-6 md:p-8 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+        <TopProgress step={step} />
+        {step === 1 && <Scene1 onNext={goNext} />}
+        {step === 2 && (
+          <Scene2Motivations
+            selected={motivations}
+            onToggle={(v) => toggleInArray(v, motivations, setMotivations)}
+          />
+        )}
+        {step === 3 && (
+          <Scene3Tone
+            selected={tonePrefs}
+            onToggle={(v) => toggleInArray(v, tonePrefs, setTonePrefs)}
+          />
+        )}
+        {step === 4 && (
+          <Scene4Focus
+            focusArea={focusArea}
+            setFocusArea={setFocusArea}
+            reason={reason}
+            setReason={setReason}
+          />
+        )}
+        <BottomNav
+          step={step}
+          canContinue={canContinue}
+          onBack={goBack}
+          onNext={step < 4 ? goNext : handleFinish}
+        />
+      </div>
+    </div>
+  );
+}
+
+function buildDefaultTitle(focus: string, motivations: string[]): string {
+  if (focus === "body") return "Show up for your body";
+  if (focus === "mind") return "Protect your mind daily";
+  if (focus === "work") return "Daily deep work";
+  if (focus === "craft") return "Sharpen your craft";
+  if (focus === "life") return "Keep life in order";
+  if (motivations.includes("discipline")) return "Build unbreakable discipline";
+  return "Keep your promise today";
+}
+
+3.2 Scenes (short, visual, multi-select)
+Scene 1: cold open
+function TopProgress({ step }: { step: number }) {
+  const pct = (step / 4) * 100;
+  return (
+    <div className="mb-6">
+      <div className="flex justify-between items-center mb-2 text-xs text-white/60">
+        <span>StreakProof setup</span>
+        <span>{step}/4</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-white/8 overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function Scene1({ onNext }: { onNext: () => void }) {
+  return (
+    <div className="flex flex-col items-center text-center gap-4 py-8">
+      <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-purple-500/40 via-blue-500/20 to-transparent">
+        <div className="absolute inset-4 rounded-full border border-white/20" />
+        <div className="absolute inset-0 blur-3xl bg-purple-500/30" />
+      </div>
+      <div>
+        <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+          Show up.
+        </h1>
+        <p className="text-sm text-white/70 mt-2">
+          We turn your promises into proof.
+        </p>
+      </div>
+      <button
+        onClick={onNext}
+        className="mt-4 px-8 py-3 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 text-sm font-semibold shadow-lg active:scale-95 transition-transform"
+      >
+        Step in
+      </button>
+    </div>
+  );
+}
+
+Scene 2: motivations (multi-select)
+const MOTIVATION_OPTIONS = [
+  { id: "discipline", label: "Discipline", sub: "Stop slipping." },
+  { id: "energy", label: "Energy", sub: "Feel stronger." },
+  { id: "focus", label: "Focus", sub: "Fewer distractions." },
+  { id: "calm", label: "Calm", sub: "Quieter mind." },
+  { id: "momentum", label: "Momentum", sub: "Daily progress." },
+  { id: "rebuild", label: "Rebuild", sub: "Come back from a low." }
+];
+
+function Scene2Motivations({
+  selected,
+  onToggle
+}: {
+  selected: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="py-4">
+      <h2 className="text-xl md:text-2xl font-semibold mb-1">
+        What brought you here today?
+      </h2>
+      <p className="text-xs text-white/60 mb-5">
+        Choose as many as you like.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {MOTIVATION_OPTIONS.map((m) => {
+          const isOn = selected.includes(m.id);
+          return (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => onToggle(m.id)}
+              className={[
+                "relative text-left p-3 rounded-2xl border backdrop-blur-sm transition-all",
+                isOn
+                  ? "border-purple-400 bg-purple-500/10 shadow-[0_0_24px_rgba(147,51,234,0.4)]"
+                  : "border-white/15 bg-white/2 hover:border-purple-300/70"
+              ].join(" ")}
+            >
+              <p className="text-sm font-semibold">{m.label}</p>
+              <p className="text-xs text-white/60 mt-1">{m.sub}</p>
+              {isOn && (
+                <span className="absolute top-3 right-3 w-5 h-5 rounded-full border border-purple-300 flex items-center justify-center text-[0.6rem]">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+Scene 3: tone (multi-select)
+const TONE_OPTIONS = [
+  { id: "direct", label: "Direct", sub: "No fluff." },
+  { id: "calm", label: "Calm", sub: "Soft and steady." },
+  { id: "data", label: "Data", sub: "Facts and metrics." },
+  { id: "hype", label: "Hype", sub: "Push me." },
+  { id: "quiet", label: "Quiet", sub: "Minimal and clean." }
+];
+
+function Scene3Tone({
+  selected,
+  onToggle
+}: {
+  selected: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="py-4">
+      <h2 className="text-xl md:text-2xl font-semibold mb-1">
+        How should we speak to you?
+      </h2>
+      <p className="text-xs text-white/60 mb-4">
+        This changes how StreakProof feels.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {TONE_OPTIONS.map((t) => {
+          const isOn = selected.includes(t.id);
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onToggle(t.id)}
+              className={[
+                "px-3 py-1.5 rounded-full border text-xs transition-all",
+                isOn
+                  ? "border-purple-400 bg-purple-500/20"
+                  : "border-white/20 bg-white/3 hover:border-purple-300/70"
+              ].join(" ")}
+            >
+              <span className="font-semibold mr-1">{t.label}</span>
+              <span className="text-white/60">{t.sub}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+Scene 4: focus + reason
+const FOCUS_OPTIONS = [
+  { id: "body", label: "Body" },
+  { id: "mind", label: "Mind" },
+  { id: "work", label: "Work" },
+  { id: "craft", label: "Craft" },
+  { id: "life", label: "Life" }
+];
+
+function Scene4Focus({
+  focusArea,
+  setFocusArea,
+  reason,
+  setReason
+}: {
+  focusArea: string | null;
+  setFocusArea: (v: string) => void;
+  reason: string;
+  setReason: (v: string) => void;
+}) {
+  return (
+    <div className="py-4 space-y-5">
+      <div>
+        <h2 className="text-xl md:text-2xl font-semibold mb-1">
+          What are we building first?
+        </h2>
+        <p className="text-xs text-white/60 mb-4">
+          Pick one area to start with.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {FOCUS_OPTIONS.map((f) => {
+            const isOn = focusArea === f.id;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFocusArea(f.id)}
+                className={[
+                  "px-3 py-1.5 rounded-full border text-xs transition-all",
+                  isOn
+                    ? "border-purple-400 bg-purple-500/20"
+                    : "border-white/20 bg-white/3 hover:border-purple-300/70"
+                ].join(" ")}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-xs text-white/70 mb-2">
+          One honest sentence about why this matters.
+        </p>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="For example: I am tired of starting strong and falling off."
+          className="w-full min-h-[80px] rounded-2xl bg-white/5 border border-white/20 text-xs px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-300"
+        />
+      </div>
+    </div>
+  );
+}
+
+function BottomNav({
+  step,
+  canContinue,
+  onBack,
+  onNext
+}: {
+  step: number;
+  canContinue: boolean;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="mt-6 flex justify-between items-center">
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-xs text-white/60 border border-white/20 rounded-full px-4 py-1.5 hover:bg-white/5 disabled:opacity-40"
+        disabled={step === 1}
+      >
+        Back
+      </button>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={!canContinue}
+        className="text-xs font-semibold px-6 py-2 rounded-full bg-gradient-to-r from-purple-500 via-pink-500 to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {step < 4 ? "Continue" : "Start my streak"}
+      </button>
+    </div>
+  );
+}
+
+
+If you want, next I can:
+
+Wire this onboarding into your existing AppRoot with a clear gate (onboarding_completed), and
+
+Suggest small animation tweaks so it feels more “movie-like” (Framer Motion, timed fades) while staying stoic and clean.
+
+You said:
+yes add those two recommendations too and i will share with replit to adjsut 
+ChatGPT said:
+Thought for 8s
+
+Here is exactly what you need to add.
+
+I will assume:
+
+You already have AuthGate and Onboarding from before.
+
+You have or will create a MainDashboard component (even if it is a placeholder).
+
+I will cover:
+
+Database fields for onboarding status
+
+AppRoot logic to gate onboarding
+
+Wiring AppRoot under AuthGate
+
+Framer Motion animation layer for the onboarding scenes
+
+You can hand this straight to whoever is editing the Replit project.
+
+1. Database: make sure onboarding fields exist
+
+Run this SQL in Supabase to extend the users table.
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS motivations TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS tone_preferences TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS focus_area TEXT,
+ADD COLUMN IF NOT EXISTS primary_goal_reason TEXT,
+ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+
+
+If you do not have created_at and updated_at on users, add them too:
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+
+In Supabase, make sure your RLS policy allows the logged in user to select and update their own users row.
+
+2. AppRoot logic: gate onboarding vs dashboard
+
+Create or update src/AppRoot.tsx (or .jsx) like this.
+
+Key ideas:
+
+Ensure user row exists.
+
+Check onboarding_completed.
+
+If false, render <Onboarding />.
+
+When onboarding finishes, render <MainDashboard />.
+
+import { useEffect, useState } from "react";
+import { supabase } from "./lib/supabaseClient";
+import { Onboarding } from "./components/Onboarding";
+import { MainDashboard } from "./components/MainDashboard";
+
+type AppRootProps = {
+  user: {
+    id: string;
+    email?: string | null;
+  };
+};
+
+type UserProfile = {
+  id: string;
+  email: string | null;
+  onboarding_completed: boolean;
+  motivations?: string[];
+  tone_preferences?: string[];
+  focus_area?: string | null;
+  primary_goal_reason?: string | null;
+};
+
+export function AppRoot({ user }: AppRootProps) {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const init = async () => {
+      // try fetch profile
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error loading profile", error);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        // create new profile row
+        const now = new Date().toISOString();
+        const { data: inserted, error: insertError } = await supabase
+          .from("users")
+          .insert({
+            id: user.id,
+            email: user.email ?? null,
+            created_at: now,
+            updated_at: now,
+            onboarding_completed: false
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error("Error creating profile", insertError);
+          setLoading(false);
+          return;
+        }
+
+        setProfile(inserted as UserProfile);
+        setLoading(false);
+        return;
+      }
+
+      setProfile(data as UserProfile);
+      setLoading(false);
+    };
+
+    init();
+  }, [user.id, user.email]);
+
+  const handleOnboardingComplete = async () => {
+    // re fetch profile so we get updated onboarding_completed and other fields
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error refreshing profile after onboarding", error);
+      return;
+    }
+    if (data) {
+      setProfile(data as UserProfile);
+    }
+  };
+
+  if (loading || !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        Loading your space...
+      </div>
+    );
+  }
+
+  if (!profile.onboarding_completed) {
+    return (
+      <Onboarding
+        user={{ id: profile.id, email: profile.email }}
+        onComplete={handleOnboardingComplete}
+      />
+    );
+  }
+
+  return (
+    <MainDashboard
+      user={profile}
+    />
+  );
+}
+
+
+Then create a very simple MainDashboard placeholder so the app compiles:
+
+// src/components/MainDashboard.tsx
+type MainDashboardProps = {
+  user: {
+    id: string;
+    email: string | null;
+    onboarding_completed?: boolean;
+    focus_area?: string | null;
+  };
+};
+
+export function MainDashboard({ user }: MainDashboardProps) {
+  return (
+    <div className="min-h-screen bg-black text-white p-4">
+      <h1 className="text-2xl font-semibold mb-2">
+        Good to see you.
+      </h1>
+      <p className="text-sm text-white/70">
+        You are now inside StreakProof. Next step is to wire commitments,
+        check ins and streak logic here.
+      </p>
+      <p className="text-xs text-white/40 mt-4">
+        User id: {user.id}
+      </p>
+    </div>
+  );
+}
+
+3. Wire AppRoot under AuthGate
+
+In your main entry file, you likely currently have something like:
+
+import AuthGate from "./components/AuthGate";
+import { AppRoot } from "./AppRoot";
+
+export default function App() {
+  return (
+    <AuthGate>
+      {(user) => <AppRoot user={user} />}
+    </AuthGate>
+  );
+}
+
+
+If not, make it look like that.
+
+This sequence is now:
+
+AuthGate obtains Supabase user.
+
+AppRoot ensures users table row exists.
+
+If onboarding not completed, show cinematic onboarding.
+
+When onboarding is saved, flip to MainDashboard.
+
+4. Animation layer with Framer Motion
+
+To get the movie like feeling you want, with smooth transitions and minimal code changes, use framer-motion.
+
+4.1 Install
+
+In Replit shell:
+
+npm install framer-motion
+
+4.2 Wrap onboarding scenes with motion
+
+Edit src/components/Onboarding.tsx (or wherever you put it).
+
+Add:
+
+import { motion, AnimatePresence } from "framer-motion";
+
+
+Then modify the root of your Onboarding return to use AnimatePresence around the scene content.
+
+Example pattern:
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-[#050509] via-[#050509] to-[#050509] text-white flex items-center justify-center px-4">
+    <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-white/2 backdrop-blur-xl p-6 md:p-8 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+      <TopProgress step={step} />
+
+      <AnimatePresence mode="wait">
+        {step === 1 && (
+          <motion.div
+            key="scene1"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Scene1 onNext={goNext} />
+          </motion.div>
+        )}
+
+        {step === 2 && (
+          <motion.div
+            key="scene2"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Scene2Motivations
+              selected={motivations}
+              onToggle={(v) => toggleInArray(v, motivations, setMotivations)}
+            />
+          </motion.div>
+        )}
+
+        {step === 3 && (
+          <motion.div
+            key="scene3"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Scene3Tone
+              selected={tonePrefs}
+              onToggle={(v) => toggleInArray(v, tonePrefs, setTonePrefs)}
+            />
+          </motion.div>
+        )}
+
+        {step === 4 && (
+          <motion.div
+            key="scene4"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Scene4Focus
+              focusArea={focusArea}
+              setFocusArea={setFocusArea}
+              reason={reason}
+              setReason={setReason}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <BottomNav
+        step={step}
+        canContinue={canContinue}
+        onBack={goBack}
+        onNext={step < 4 ? goNext : handleFinish}
+      />
+    </div>
+  </div>
+);
+
+
+This gives you:
+
+Smooth fade and slide between each onboarding screen.
+
+A full card that feels like scenes in a film.
+
+Very little extra complexity.
+
+If you want a subtle entry animation for the whole onboarding shell itself, you can also wrap the inner container:
+
+<div className="min-h-screen ...">
+  <motion.div
+    className="w-full max-w-2xl rounded-3xl ..."
+    initial={{ opacity: 0, scale: 0.96 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ duration: 0.25 }}
+  >
+    ...
+  </motion.div>
+</div>
+
+
+No need to go beyond that for v1. This is already high impact and stoic.

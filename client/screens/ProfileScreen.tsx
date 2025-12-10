@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { ChurnPreventionModal } from "@/components/ChurnPreventionModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnalytics } from "@/hooks/useCommitments";
@@ -39,6 +40,7 @@ export default function ProfileScreen() {
   const { user, logout, updateUser } = useAuth();
   const { data: analytics } = useAnalytics();
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showChurnModal, setShowChurnModal] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [isEditing, setIsEditing] = useState(false);
 
@@ -64,20 +66,12 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "This action cannot be undone. All your data will be permanently deleted.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            Alert.alert("Account Deletion", "Please contact support to delete your account.");
-          },
-        },
-      ]
-    );
+    setShowChurnModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowChurnModal(false);
+    Alert.alert("Account Deletion", "Please contact support to delete your account.");
   };
 
   const handleSaveDisplayName = async () => {
@@ -326,6 +320,14 @@ export default function ProfileScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      <ChurnPreventionModal
+        visible={showChurnModal}
+        onClose={() => setShowChurnModal(false)}
+        onConfirmDelete={handleConfirmDelete}
+        streakCount={bestStreak}
+        checkInsCount={totalCheckIns}
+      />
     </KeyboardAwareScrollViewCompat>
   );
 }
