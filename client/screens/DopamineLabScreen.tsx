@@ -1,55 +1,94 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   View,
   StyleSheet,
   Pressable,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
-import Animated, { FadeIn, useAnimatedStyle, withSpring, useSharedValue } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
+import type { DopamineEntry } from "@shared/schema";
 
 const CHECKLIST_ITEMS = [
-  { id: "moved_body", label: "Moved body", icon: "activity", description: "Any physical activity" },
+  { id: "movedBody", label: "Moved body", icon: "activity", description: "Any physical activity" },
   { id: "daylight", label: "Got daylight", icon: "sun", description: "Natural light exposure" },
   { id: "social", label: "Social connection", icon: "users", description: "Meaningful interaction" },
   { id: "creative", label: "Creativity", icon: "edit-3", description: "Made or created something" },
   { id: "music", label: "Music", icon: "music", description: "Listened or played" },
   { id: "learning", label: "Learned something", icon: "book-open", description: "New information or skill" },
-  { id: "cold_exposure", label: "Cold exposure", icon: "droplet", description: "Cold shower or similar" },
-  { id: "protected_sleep", label: "Protected sleep", icon: "moon", description: "Quality rest" },
-];
+  { id: "coldExposure", label: "Cold exposure", icon: "droplet", description: "Cold shower or similar" },
+  { id: "protectedSleep", label: "Protected sleep", icon: "moon", description: "Quality rest" },
+] as const;
+
+type ChecklistKey = typeof CHECKLIST_ITEMS[number]["id"];
 
 export default function DopamineLabScreen() {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const queryClient = useQueryClient();
 
-  const [checkedItems, setCheckedItems] = useState<string[]>([]);
+  const { data: todayEntry, isLoading } = useQuery<DopamineEntry | null>({
+    queryKey: ["/api/dopamine/today"],
+    enabled: !!user,
+  });
 
-  const score = checkedItems.length;
-  const maxScore = CHECKLIST_ITEMS.length;
+  const saveMutation = useMutation({
+    mutationFn: async (updates: Partial<Record<ChecklistKey, boolean>>) => {
+      const currentData = {
+        movedBody: todayEntry?.movedBody ?? false,
+        daylight: todayEntry?.daylight ?? false,
+        social: todayEntry?.social ?? false,
+        creative: todayEntry?.creative ?? false,
+        music: todayEntry?.music ?? false,
+        learning: todayEntry?.learning ?? false,
+        coldExposure: todayEntry?.coldExposure ?? false,
+        protectedSleep: todayEntry?.protectedSleep ?? false,
+        ...updates,
+      };
+      return apiRequest("POST", "/api/dopamine", currentData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dopamine/today"] });
+    },
+  });
 
-  const toggleItem = (id: string) => {
+  const isChecked = useCallback((id: ChecklistKey): boolean => {
+    if (!todayEntry) return false;
+    return Boolean(todayEntry[id]);
+  }, [todayEntry]);
+
+  const checkedCount = useMemo(() => {
+    if (!todayEntry) return 0;
+    return CHECKLIST_ITEMS.filter(item => todayEntry[item.id]).length;
+  }, [todayEntry]);
+
+  const toggleItem = (id: ChecklistKey) => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    if (checkedItems.includes(id)) {
-      setCheckedItems(checkedItems.filter((item) => item !== id));
-    } else {
-      setCheckedItems([...checkedItems, id]);
-    }
+    const newValue = !isChecked(id);
+    saveMutation.mutate({ [id]: newValue });
   };
+
+  const score = checkedCount;
+  const maxScore = CHECKLIST_ITEMS.length;
 
   const insight = useMemo(() => {
     if (score === 0) {
@@ -64,6 +103,14 @@ export default function DopamineLabScreen() {
       return "Outstanding. You're building a foundation for sustainable motivation.";
     }
   }, [score]);
+
+  if (isLoading) {
+    return (
+      <ThemedView style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -111,52 +158,55 @@ export default function DopamineLabScreen() {
 
         <View style={styles.checklist}>
           {CHECKLIST_ITEMS.map((item) => {
-            const isChecked = checkedItems.includes(item.id);
+            const checked = isChecked(item.id);
             return (
               <Pressable
                 key={item.id}
                 style={[
                   styles.checklistItem,
                   {
-                    backgroundColor: isChecked
+                    backgroundColor: checked
                       ? `${EarthyColors.forestGreen}15`
                       : theme.backgroundSecondary,
-                    borderColor: isChecked
+                    borderColor: checked
                       ? EarthyColors.forestGreen
                       : theme.border,
                   },
                 ]}
                 onPress={() => toggleItem(item.id)}
+                disabled={saveMutation.isPending}
               >
                 <View
                   style={[
                     styles.checkbox,
                     {
-                      backgroundColor: isChecked
+                      backgroundColor: checked
                         ? EarthyColors.forestGreen
                         : "transparent",
-                      borderColor: isChecked
+                      borderColor: checked
                         ? EarthyColors.forestGreen
                         : theme.border,
                     },
                   ]}
                 >
-                  {isChecked ? (
-                    <Feather name="check" size={16} color="#fff" />
+                  {checked ? (
+                    <Animated.View entering={FadeIn.duration(200)}>
+                      <Feather name="check" size={16} color="#fff" />
+                    </Animated.View>
                   ) : null}
                 </View>
                 <View style={styles.itemIcon}>
                   <Feather
                     name={item.icon as any}
                     size={20}
-                    color={isChecked ? EarthyColors.forestGreen : theme.textSecondary}
+                    color={checked ? EarthyColors.forestGreen : theme.textSecondary}
                   />
                 </View>
                 <View style={styles.itemContent}>
                   <ThemedText
                     style={[
                       styles.itemLabel,
-                      { color: isChecked ? EarthyColors.forestGreen : theme.text },
+                      { color: checked ? EarthyColors.forestGreen : theme.text },
                     ]}
                   >
                     {item.label}
@@ -189,6 +239,10 @@ export default function DopamineLabScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   content: {
     paddingHorizontal: Spacing.lg,

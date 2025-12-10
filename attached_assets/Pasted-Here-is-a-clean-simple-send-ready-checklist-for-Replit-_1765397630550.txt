@@ -1,0 +1,174 @@
+Here is a **clean, simple, send-ready checklist** for Replit.
+This is the version you give them so they can confirm **each task is implemented** before marking it complete.
+
+Copy and paste this directly into Replit AI:
+
+---
+
+# ✅ **STREAKPROOF — IMPLEMENTATION CHECKLIST FOR REPLIT**
+
+Please use this checklist to confirm you have implemented every required task from the master spec.
+Mark items as **Done**, **In Progress**, or **Blocked**.
+
+---
+
+# **TASK 1 — DATA MODEL EXPANSION**
+
+### Confirm:
+
+[ ] All new user fields added
+[ ] New commitment proof_mode added
+[ ] Checkins upgraded with has_photo
+[ ] Dopamine checklist table created
+[ ] Subscriptions + push tokens still intact
+[ ] App state updated to read/write new fields
+
+---
+
+# **TASK 2 — ADVANCED ONBOARDING EXPERIENCE**
+
+### Confirm:
+
+[ ] Old onboarding removed
+[ ] New 8–10 screen cinematic onboarding added
+[ ] Behavioural science microcards between screens
+[ ] Multi-select + single-select questions implemented
+[ ] Motivations, focus area, tone, triggers, rewards saved
+[ ] Auto-generated Habit Profile result screen added
+[ ] Onboarding completion updates user row
+[ ] Onboarding redirects correctly based on completion
+[ ] UI updated with animations + earthy visuals
+
+---
+
+# **TASK 3 — SMART COMMITMENT CREATION WIZARD**
+
+### Confirm:
+
+[ ] Template-based habit recommendations implemented
+[ ] Wizard is 3 steps (Recommend → Details → Accountability)
+[ ] proof_mode properly set based on user choice
+[ ] accountability_level stored
+[ ] Animations + transitions added
+[ ] Commitment cards update immediately
+
+---
+
+# **TASK 4 — INTELLIGENT CHECK-IN FLOW**
+
+### Confirm:
+
+[ ] Check-in logic supports flexible proof modes
+[ ] Purpose/explainer blocks displayed for each mode
+[ ] Photo optional vs required logic enforced
+[ ] Storage upload integrated
+[ ] Streak updates correctly
+[ ] Check-in micro-animations added
+
+---
+
+# **TASK 5 — EARTHY PREMIUM THEME SYSTEM**
+
+### Confirm:
+
+[ ] Light + dark themes built
+[ ] Theme matches system preference
+[ ] Earth-tone palette applied across all components
+[ ] Gradients updated
+[ ] Typography updated
+[ ] Context provider for theme implemented
+
+---
+
+# **TASK 6 — PROFILE AS A SELF-UNDERSTANDING HUB**
+
+### Confirm:
+
+[ ] Identity header added
+[ ] Habit Profile card added
+[ ] 10–12 question self-regulation test added
+[ ] Personality results visualised (bars or chart)
+[ ] Personal context stored + editable
+[ ] Settings updated with SSO, notifications, theme, billing
+[ ] Profile UI redesigned to fit new vibe
+
+---
+
+# **TASK 7 — MULTI-SSO INTEGRATION**
+
+### Confirm:
+
+[ ] Google sign-in working
+[ ] Microsoft sign-in working
+[ ] Phone OTP working
+[ ] Email Magic Link working
+[ ] Apple placeholder ready but not enabled
+[ ] Facebook optional
+[ ] User row auto-created after auth
+[ ] Redirect handles onboarding_completed
+
+---
+
+# **TASK 8 — STOIC ROOM + DOPAMINE LAB**
+
+### Confirm Stoic Room:
+
+[ ] Daily quote card
+[ ] “Why this quote?” behavioural insight
+[ ] Save/share feature
+[ ] Style matches earthy theme
+
+Confirm Dopamine Lab:
+[ ] Education section added
+[ ] 8-item daily natural reward checklist
+[ ] Supabase inserts into dopamine_checklist_entries
+[ ] Daily score + reflection displayed
+[ ] Animation on completion
+
+---
+
+# **TASK 9 — PUSH NOTIFICATIONS + REMINDERS**
+
+### Confirm:
+
+[ ] Expo push token capture
+[ ] email reminders still supported
+[ ] user controls reminder time + channel
+[ ] Cron job simulation added (or final logic stubbed)
+[ ] Tone-based message copy integrated
+
+---
+
+# **TASK 10 — PAYMENTS + PRO PLAN**
+
+### Confirm:
+
+[ ] Stripe Checkout integrated
+[ ] Webhook listener built
+[ ] Plan updates stored correctly
+[ ] Upgrade CTAs across UI
+[ ] Pro gating logic added
+[ ] Deployment-compatible configuration
+
+---
+
+# **FINAL DEPLOYMENT CHECKS**
+
+### Confirm:
+
+[ ] All screens render correctly on Web + Expo Go
+[ ] Onboarding → First streak → Check-in → Profile → Stoic → Dopamine → Upgrade flow works end-to-end
+[ ] Supabase reads/writes stable
+[ ] SSO stable
+[ ] Dark/light mode smooth
+[ ] No crashes
+[ ] No unstyled or placeholder elements
+
+---
+
+Tell me if you’d also like:
+
+**A. A Founder QA checklist** so *you* know how to test everything
+**B. A short version for Replit (2 paragraphs)**
+**C. A GitHub Copilot Workspace task list format
+D. A pitch deck outline showing these new features**

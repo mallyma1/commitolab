@@ -396,6 +396,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/dopamine/today", requireAuth, async (req, res) => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const entry = await storage.getDopamineEntry(req.userId!, today);
+      return res.json(entry || null);
+    } catch (error) {
+      console.error("Get dopamine entry error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/dopamine/history", requireAuth, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 30;
+      const entries = await storage.getDopamineEntries(req.userId!, limit);
+      return res.json(entries);
+    } catch (error) {
+      console.error("Get dopamine history error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/dopamine", requireAuth, async (req, res) => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { movedBody, daylight, social, creative, music, learning, coldExposure, protectedSleep } = req.body;
+      
+      const entry = await storage.upsertDopamineEntry(req.userId!, {
+        date: today,
+        movedBody: movedBody ?? false,
+        daylight: daylight ?? false,
+        social: social ?? false,
+        creative: creative ?? false,
+        music: music ?? false,
+        learning: learning ?? false,
+        coldExposure: coldExposure ?? false,
+        protectedSleep: protectedSleep ?? false,
+      });
+      
+      return res.json(entry);
+    } catch (error) {
+      console.error("Upsert dopamine entry error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     try {
