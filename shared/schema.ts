@@ -113,6 +113,9 @@ export const users = pgTable("users", {
   lastStoicSeenAt: timestamp("last_stoic_seen_at"),
   stoicStyle: text("stoic_style"),
   
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  
   primaryGoalCategory: text("primary_goal_category"),
   primaryGoalReason: text("primary_goal_reason"),
   preferredCadence: text("preferred_cadence"),

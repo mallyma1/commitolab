@@ -237,6 +237,22 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     return quote || undefined;
   }
+
+  async updateUserStripeInfo(
+    userId: string,
+    stripeInfo: {
+      stripeCustomerId?: string;
+      stripeSubscriptionId?: string;
+      plan?: string;
+    }
+  ): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set(stripeInfo)
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
 }
 
 export const storage = new DatabaseStorage();

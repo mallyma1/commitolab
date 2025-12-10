@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { insertCommitmentSchema, insertCheckInSchema } from "@shared/schema";
+import { stripeService } from "./stripeService";
+import { getStripePublishableKey } from "./stripeClient";
 
 function buildDefaultCommitmentTitle(identity: string, goalCategory: string): string {
   const base = goalCategory === "custom" ? "My streak" : goalCategory.replace("_", " ");
