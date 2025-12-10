@@ -12,7 +12,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { useCheckIns, CheckIn, Commitment } from "@/hooks/useCommitments";
+import { useCheckIns, useCommitment, CheckIn, Commitment } from "@/hooks/useCommitments";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -36,7 +36,9 @@ export default function CommitmentDetailScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<DetailRouteProp>();
-  const { commitment } = route.params;
+  const { commitment: navCommitment } = route.params;
+  const { data: freshCommitment } = useCommitment(navCommitment.id);
+  const commitment = freshCommitment || navCommitment;
   const { data: checkIns = [], isLoading } = useCheckIns(commitment.id);
   const baseUrl = getApiUrl();
 

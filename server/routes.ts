@@ -188,6 +188,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/analytics", async (req, res) => {
+    try {
+      const userId = req.headers["x-session-id"] as string;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const commitments = await storage.getCommitments(userId);
+      
+      let totalCheckIns = 0;
+      const categoryStats: Record<string, { count: number; streak: number }> = {};
+      const weeklyData: { day: string; count: number }[] = [];
+      
+      const now = new Date();
+      const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const last7Days: Record<string, number> = {};
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const dayKey = date.toISOString().split("T")[0];
+        last7Days[dayKey] = 0;
+      }
+
+      for (const commitment of commitments) {
+        const checkIns = await storage.getCheckIns(commitment.id);
+        totalCheckIns += checkIns.length;
+
+        const category = commitment.category;
+        if (!categoryStats[category]) {
+          categoryStats[category] = { count: 0, streak: 0 };
+        }
+        categoryStats[category].count++;
+        categoryStats[category].streak = Math.max(
+          categoryStats[category].streak,
+          commitment.longestStreak
+        );
+
+        for (const checkIn of checkIns) {
+          const checkInDay = new Date(checkIn.createdAt).toISOString().split("T")[0];
+          if (last7Days[checkInDay] !== undefined) {
+            last7Days[checkInDay]++;
+          }
+        }
+      }
+
+      for (const [dayKey, count] of Object.entries(last7Days)) {
+        const date = new Date(dayKey);
+        weeklyData.push({
+          day: weekDays[date.getDay()],
+          count,
+        });
+      }
+
+      return res.json({
+        totalCheckIns,
+        totalCommitments: commitments.length,
+        activeCommitments: commitments.filter((c) => c.active).length,
+        bestStreak: commitments.reduce((max, c) => Math.max(max, c.longestStreak), 0),
+        categoryStats,
+        weeklyData,
+      });
+    } catch (error) {
+      console.error("Get analytics error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     try {

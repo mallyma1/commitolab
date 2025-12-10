@@ -10,8 +10,17 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCommitments } from "@/hooks/useCommitments";
+import { useAnalytics } from "@/hooks/useCommitments";
 import { Spacing, BorderRadius } from "@/constants/theme";
+
+const categoryIcons: Record<string, keyof typeof Feather.glyphMap> = {
+  fitness: "activity",
+  reading: "book",
+  meditation: "sun",
+  sobriety: "heart",
+  learning: "book-open",
+  creative: "edit-3",
+};
 
 const avatarPresets = [
   { id: "yoga", source: require("../assets/avatars/yoga.png") },
@@ -28,14 +37,18 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   const { user, logout, updateUser } = useAuth();
-  const { data: commitments } = useCommitments();
+  const { data: analytics } = useAnalytics();
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [isEditing, setIsEditing] = useState(false);
 
-  const totalCommitments = commitments?.length || 0;
-  const bestStreak = commitments?.reduce((max, c) => Math.max(max, c.longestStreak), 0) || 0;
-  const activeCommitments = commitments?.filter((c) => c.active).length || 0;
+  const totalCommitments = analytics?.totalCommitments || 0;
+  const bestStreak = analytics?.bestStreak || 0;
+  const activeCommitments = analytics?.activeCommitments || 0;
+  const totalCheckIns = analytics?.totalCheckIns || 0;
+  const categoryStats = analytics?.categoryStats || {};
+  const weeklyData = analytics?.weeklyData || [];
+  const maxWeeklyCount = Math.max(1, ...weeklyData.map((d) => d.count));
 
   const currentAvatar = avatarPresets.find((a) => a.id === user?.avatarPreset) || avatarPresets[0];
 
@@ -159,11 +172,11 @@ export default function ProfileScreen() {
       <View style={styles.statsGrid}>
         <Card style={styles.statCard}>
           <View style={[styles.statIcon, { backgroundColor: `${theme.primary}20` }]}>
-            <Feather name="target" size={24} color={theme.primary} />
+            <Feather name="check-circle" size={24} color={theme.primary} />
           </View>
-          <ThemedText style={styles.statValue}>{totalCommitments}</ThemedText>
+          <ThemedText style={styles.statValue}>{totalCheckIns}</ThemedText>
           <ThemedText style={[styles.statLabel, { color: theme.textSecondary }]}>
-            Total Commitments
+            Check-ins
           </ThemedText>
         </Card>
 
@@ -187,6 +200,71 @@ export default function ProfileScreen() {
           </ThemedText>
         </Card>
       </View>
+
+      {weeklyData.length > 0 ? (
+        <>
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            Weekly Activity
+          </ThemedText>
+          <Card style={styles.chartCard}>
+            <View style={styles.barChart}>
+              {weeklyData.map((day, index) => (
+                <View key={index} style={styles.barContainer}>
+                  <View style={styles.barWrapper}>
+                    <View
+                      style={[
+                        styles.bar,
+                        {
+                          height: `${(day.count / maxWeeklyCount) * 100}%`,
+                          backgroundColor: day.count > 0 ? theme.primary : theme.border,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <ThemedText style={[styles.barLabel, { color: theme.textSecondary }]}>
+                    {day.day}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
+          </Card>
+        </>
+      ) : null}
+
+      {Object.keys(categoryStats).length > 0 ? (
+        <>
+          <ThemedText type="h4" style={styles.sectionTitle}>
+            Categories
+          </ThemedText>
+          <View style={styles.categoryList}>
+            {Object.entries(categoryStats).map(([category, stats]) => (
+              <Card key={category} style={styles.categoryCard}>
+                <View style={[styles.categoryIcon, { backgroundColor: `${theme.primary}20` }]}>
+                  <Feather
+                    name={categoryIcons[category] || "target"}
+                    size={20}
+                    color={theme.primary}
+                  />
+                </View>
+                <View style={styles.categoryInfo}>
+                  <ThemedText style={styles.categoryName}>
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                  </ThemedText>
+                  <ThemedText style={[styles.categoryDetail, { color: theme.textSecondary }]}>
+                    {stats.count} commitment{stats.count !== 1 ? "s" : ""}
+                  </ThemedText>
+                </View>
+                <View style={styles.categoryStreak}>
+                  <Feather name="trending-up" size={16} color={theme.secondary} />
+                  <ThemedText style={[styles.streakText, { color: theme.secondary }]}>
+                    {stats.streak}
+                  </ThemedText>
+                </View>
+              </Card>
+            ))}
+          </View>
+        </>
+      ) : null}
 
       <ThemedText type="h4" style={styles.sectionTitle}>
         Account
@@ -341,6 +419,70 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     textAlign: "center",
+  },
+  chartCard: {
+    padding: Spacing.md,
+  },
+  barChart: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    height: 120,
+    alignItems: "flex-end",
+  },
+  barContainer: {
+    flex: 1,
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  barWrapper: {
+    flex: 1,
+    width: "70%",
+    justifyContent: "flex-end",
+  },
+  bar: {
+    width: "100%",
+    minHeight: 4,
+    borderRadius: 4,
+  },
+  barLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  categoryList: {
+    gap: Spacing.sm,
+  },
+  categoryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  categoryIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryInfo: {
+    flex: 1,
+  },
+  categoryName: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  categoryDetail: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  categoryStreak: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  streakText: {
+    fontSize: 16,
+    fontWeight: "700",
   },
   menuItem: {
     flexDirection: "row",

@@ -125,11 +125,6 @@ export default function CheckInScreen() {
   };
 
   const handleCheckIn = async () => {
-    if (!photo) {
-      Alert.alert("Photo Required", "Please take or select a photo as proof of your check-in.");
-      return;
-    }
-
     setIsUploading(true);
 
     try {
@@ -147,7 +142,7 @@ export default function CheckInScreen() {
 
       Alert.alert(
         "Check-in Complete!",
-        `Great job! Your streak is now ${commitment.currentStreak + 1} days!`,
+        "Great job! Keep up your streak!",
         [{ text: "OK", onPress: () => navigation.goBack() }]
       );
     } catch (error) {
@@ -195,7 +190,7 @@ export default function CheckInScreen() {
           >
             <Feather name="camera" size={48} color={theme.textSecondary} />
             <ThemedText style={[styles.photoPlaceholderText, { color: theme.textSecondary }]}>
-              Add a photo to complete your check-in
+              Add a photo as proof (optional)
             </ThemedText>
             <View style={styles.photoButtons}>
               <Pressable

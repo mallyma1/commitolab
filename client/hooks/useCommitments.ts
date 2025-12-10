@@ -115,6 +115,34 @@ export function useCheckIns(commitmentId: string) {
   });
 }
 
+export interface AnalyticsData {
+  totalCheckIns: number;
+  totalCommitments: number;
+  activeCommitments: number;
+  bestStreak: number;
+  categoryStats: Record<string, { count: number; streak: number }>;
+  weeklyData: { day: string; count: number }[];
+}
+
+export function useAnalytics() {
+  const { user } = useAuth();
+  const baseUrl = getApiUrl();
+
+  return useQuery<AnalyticsData>({
+    queryKey: ["/api/analytics"],
+    queryFn: async () => {
+      const url = new URL("/api/analytics", baseUrl);
+      const response = await fetch(url, {
+        headers: { "x-session-id": user?.id || "" },
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch analytics");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+}
+
 export function useCreateCheckIn() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -142,8 +170,12 @@ export function useCreateCheckIn() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/commitments"] });
       queryClient.invalidateQueries({
+        queryKey: ["/api/commitments", variables.commitmentId],
+      });
+      queryClient.invalidateQueries({
         queryKey: ["/api/commitments", variables.commitmentId, "check-ins"],
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
     },
   });
 }
