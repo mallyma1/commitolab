@@ -1,0 +1,819 @@
+// ============================================
+// REACT NATIVE MOBILE APP - COMMITMENT TRACKER
+// Cross-platform iOS & Android
+// ============================================
+
+// App.tsx
+import React, { useState, useEffect } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Alert,
+  Platform
+} from 'react-native';
+import { Camera } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
+
+// ============================================
+// CONFIGURATION
+// ============================================
+
+const supabase = createClient(
+  process.env.EXPO_PUBLIC_SUPABASE_URL!,
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001';
+
+// ============================================
+// TYPES
+// ============================================
+
+interface Commitment {
+  id: string;
+  title: string;
+  category: string;
+  cadence: 'daily' | 'weekly' | 'monthly';
+  start_date: string;
+  end_date: string;
+  current_streak: number;
+  longest_streak: number;
+  active: boolean;
+}
+
+interface CheckIn {
+  id: string;
+  commitment_id: string;
+  timestamp: string;
+  note?: string;
+  media_url?: string;
+}
+
+// ============================================
+// MAIN APP COMPONENT
+// ============================================
+
+export default function App() {
+  const [screen, setScreen] = useState<'home' | 'create' | 'checkin' | 'profile'>('home');
+  const [user, setUser] = useState<any>(null);
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [selectedCommitment, setSelectedCommitment] = useState<Commitment | null>(null);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      setUser(session.user);
+      loadCommitments();
+    }
+  };
+
+  const loadCommitments = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${API_URL}/api/commitments`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+      const data = await response.json();
+      setCommitments(data);
+    } catch (error) {
+      console.error('Load commitments error:', error);
+    }
+  };
+
+  if (!user) {
+    return <AuthScreen onAuth={checkAuth} />;
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {screen === 'home' && (
+        <HomeScreen
+          commitments={commitments}
+          onCreateNew={() => setScreen('create')}
+          onSelectCommitment={(c) => {
+            setSelectedCommitment(c);
+            setScreen('checkin');
+          }}
+          onRefresh={loadCommitments}
+        />
+      )}
+      
+      {screen === 'create' && (
+        <CreateCommitmentScreen
+          onBack={() => setScreen('home')}
+          onCreated={() => {
+            loadCommitments();
+            setScreen('home');
+          }}
+        />
+      )}
+      
+      {screen === 'checkin' && selectedCommitment && (
+        <CheckInScreen
+          commitment={selectedCommitment}
+          onBack={() => setScreen('home')}
+          onCheckedIn={() => {
+            loadCommitments();
+            setScreen('home');
+          }}
+        />
+      )}
+
+      <BottomNav screen={screen} onNavigate={setScreen} />
+    </SafeAreaView>
+  );
+}
+
+// ============================================
+// AUTH SCREEN
+// ============================================
+
+function AuthScreen({ onAuth }: { onAuth: () => void }) {
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleMagicLink = async () => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: 'myapp://auth-callback'
+        }
+      });
+      
+      if (error) throw error;
+      
+      Alert.alert('Success', 'Check your email for the magic link!');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={styles.authContainer}>
+      <Text style={styles.title}>Build Your Streak</Text>
+      <Text style={styles.subtitle}>Track commitments, build accountability</Text>
+      
+      <TextInput
+        style={styles.input}
+        placeholder="Enter your email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      
+      <TouchableOpacity
+        style={[styles.button, loading && styles.buttonDisabled]}
+        onPress={handleMagicLink}
+        disabled={loading}
+      >
+        <Text style={styles.buttonText}>
+          {loading ? 'Sending...' : 'Get Magic Link'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ============================================
+// HOME SCREEN
+// ============================================
+
+function HomeScreen({
+  commitments,
+  onCreateNew,
+  onSelectCommitment,
+  onRefresh
+}: {
+  commitments: Commitment[];
+  onCreateNew: () => void;
+  onSelectCommitment: (c: Commitment) => void;
+  onRefresh: () => void;
+}) {
+  const activeCommitments = commitments.filter(c => c.active);
+
+  return (
+    <ScrollView style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.screenTitle}>My Commitments</Text>
+        <TouchableOpacity style={styles.addButton} onPress={onCreateNew}>
+          <Text style={styles.addButtonText}>+ New</Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeCommitments.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No active commitments</Text>
+          <TouchableOpacity style={styles.button} onPress={onCreateNew}>
+            <Text style={styles.buttonText}>Create Your First</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        activeCommitments.map(commitment => (
+          <CommitmentCard
+            key={commitment.id}
+            commitment={commitment}
+            onPress={() => onSelectCommitment(commitment)}
+          />
+        ))
+      )}
+    </ScrollView>
+  );
+}
+
+// ============================================
+// COMMITMENT CARD
+// ============================================
+
+function CommitmentCard({
+  commitment,
+  onPress
+}: {
+  commitment: Commitment;
+  onPress: () => void;
+}) {
+  const daysLeft = Math.ceil(
+    (new Date(commitment.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>{commitment.title}</Text>
+        <Text style={styles.category}>{commitment.category}</Text>
+      </View>
+      
+      <View style={styles.streakContainer}>
+        <View style={styles.streakBadge}>
+          <Text style={styles.streakNumber}>{commitment.current_streak}</Text>
+          <Text style={styles.streakLabel}>day streak</Text>
+        </View>
+        <View style={styles.statsContainer}>
+          <Text style={styles.statText}>Longest: {commitment.longest_streak}</Text>
+          <Text style={styles.statText}>Days left: {daysLeft}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ============================================
+// CREATE COMMITMENT SCREEN
+// ============================================
+
+function CreateCommitmentScreen({
+  onBack,
+  onCreated
+}: {
+  onBack: () => void;
+  onCreated: () => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('fitness');
+  const [cadence, setCadence] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [duration, setDuration] = useState('30');
+  const [loading, setLoading] = useState(false);
+
+  const categories = ['fitness', 'reading', 'meditation', 'sobriety', 'learning', 'creative'];
+
+  const handleCreate = async () => {
+    if (!title.trim()) {
+      Alert.alert('Error', 'Please enter a title');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + parseInt(duration));
+
+      const response = await fetch(`${API_URL}/api/commitments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          title,
+          category,
+          cadence,
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          privacy: 'solo',
+          proofType: 'photo'
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to create commitment');
+
+      Alert.alert('Success', 'Commitment created! Start your streak today.');
+      onCreated();
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ScrollView style={styles.screen}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack}>
+          <Text style={styles.backButton}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>New Commitment</Text>
+      </View>
+
+      <View style={styles.form}>
+        <Text style={styles.label}>What's your commitment?</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g., Morning workout"
+          value={title}
+          onChangeText={setTitle}
+        />
+
+        <Text style={styles.label}>Category</Text>
+        <ScrollView horizontal style={styles.categoryScroll}>
+          {categories.map(cat => (
+            <TouchableOpacity
+              key={cat}
+              style={[styles.categoryChip, category === cat && styles.categoryChipActive]}
+              onPress={() => setCategory(cat)}
+            >
+              <Text style={[styles.categoryText, category === cat && styles.categoryTextActive]}>
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.label}>How often?</Text>
+        <View style={styles.cadenceButtons}>
+          {['daily', 'weekly', 'monthly'].map((c) => (
+            <TouchableOpacity
+              key={c}
+              style={[styles.cadenceButton, cadence === c && styles.cadenceButtonActive]}
+              onPress={() => setCadence(c as any)}
+            >
+              <Text style={[styles.cadenceText, cadence === c && styles.cadenceTextActive]}>
+                {c}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Duration (days)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="30"
+          value={duration}
+          onChangeText={setDuration}
+          keyboardType="number-pad"
+        />
+
+        <TouchableOpacity
+          style={[styles.button, styles.createButton, loading && styles.buttonDisabled]}
+          onPress={handleCreate}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Creating...' : 'Create Commitment'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ============================================
+// CHECK-IN SCREEN
+// ============================================
+
+function CheckInScreen({
+  commitment,
+  onBack,
+  onCheckedIn
+}: {
+  commitment: Commitment;
+  onBack: () => void;
+  onCheckedIn: () => void;
+}) {
+  const [note, setNote] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const takePhoto = async () => {
+    const { status } = await Camera.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Camera access is required');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7
+    });
+
+    if (!result.canceled) {
+      setPhoto(result.assets[0].uri);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    if (!photo) {
+      Alert.alert('Photo required', 'Please take a photo for proof');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // Upload photo to Supabase Storage
+      const fileName = `checkin_${Date.now()}.jpg`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('checkins')
+        .upload(fileName, {
+          uri: photo,
+          type: 'image/jpeg',
+          name: fileName
+        } as any);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('checkins')
+        .getPublicUrl(fileName);
+
+      // Submit check-in
+      const response = await fetch(`${API_URL}/api/checkins`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({
+          commitmentId: commitment.id,
+          note,
+          mediaUrl: publicUrl,
+          proofHash: `hash_${Date.now()}`
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to check in');
+
+      Alert.alert('Success!', `Streak: ${commitment.current_streak + 1} days 🔥`);
+      onCheckedIn();
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ScrollView style={styles.screen}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack}>
+          <Text style={styles.backButton}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.screenTitle}>Check In</Text>
+      </View>
+
+      <View style={styles.checkinContainer}>
+        <Text style={styles.commitmentTitle}>{commitment.title}</Text>
+        <Text style={styles.streakText}>Current streak: {commitment.current_streak} days</Text>
+
+        <TouchableOpacity style={styles.photoButton} onPress={takePhoto}>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.photo} />
+          ) : (
+            <Text style={styles.photoButtonText}>📸 Take Photo</Text>
+          )}
+        </TouchableOpacity>
+
+        <TextInput
+          style={[styles.input, styles.noteInput]}
+          placeholder="How did it go? (optional)"
+          value={note}
+          onChangeText={setNote}
+          multiline
+        />
+
+        <TouchableOpacity
+          style={[styles.button, styles.checkinButton, loading && styles.buttonDisabled]}
+          onPress={handleCheckIn}
+          disabled={loading}
+        >
+          <Text style={styles.buttonText}>
+            {loading ? 'Submitting...' : '✓ Check In'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ============================================
+// BOTTOM NAVIGATION
+// ============================================
+
+function BottomNav({
+  screen,
+  onNavigate
+}: {
+  screen: string;
+  onNavigate: (s: any) => void;
+}) {
+  return (
+    <View style={styles.bottomNav}>
+      <TouchableOpacity
+        style={styles.navItem}
+        onPress={() => onNavigate('home')}
+      >
+        <Text style={screen === 'home' ? styles.navTextActive : styles.navText}>
+          Home
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.navItem}
+        onPress={() => onNavigate('profile')}
+      >
+        <Text style={screen === 'profile' ? styles.navTextActive : styles.navText}>
+          Profile
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ============================================
+// STYLES
+// ============================================
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff'
+  },
+  screen: {
+    flex: 1,
+    padding: 20
+  },
+  authContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 30
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center'
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 40,
+    textAlign: 'center'
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: 'bold'
+  },
+  backButton: {
+    fontSize: 16,
+    color: '#007AFF'
+  },
+  addButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8
+  },
+  addButtonText: {
+    color: '#fff',
+    fontWeight: '600'
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 16
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center'
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
+  },
+  buttonDisabled: {
+    opacity: 0.5
+  },
+  card: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600'
+  },
+  category: {
+    fontSize: 12,
+    color: '#666',
+    backgroundColor: '#e0e0e0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4
+  },
+  streakContainer: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  streakBadge: {
+    backgroundColor: '#FF6B35',
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 12,
+    alignItems: 'center'
+  },
+  streakNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff'
+  },
+  streakLabel: {
+    fontSize: 12,
+    color: '#fff'
+  },
+  statsContainer: {
+    flex: 1
+  },
+  statText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4
+  },
+  emptyState: {
+    alignItems: 'center',
+    marginTop: 60
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+    marginBottom: 20
+  },
+  form: {
+    marginTop: 20
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8
+  },
+  categoryScroll: {
+    marginBottom: 20
+  },
+  categoryChip: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8
+  },
+  categoryChipActive: {
+    backgroundColor: '#007AFF'
+  },
+  categoryText: {
+    color: '#666'
+  },
+  categoryTextActive: {
+    color: '#fff',
+    fontWeight: '600'
+  },
+  cadenceButtons: {
+    flexDirection: 'row',
+    marginBottom: 20
+  },
+  cadenceButton: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginRight: 8,
+    borderRadius: 8,
+    alignItems: 'center'
+  },
+  cadenceButtonActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF'
+  },
+  cadenceText: {
+    color: '#666'
+  },
+  cadenceTextActive: {
+    color: '#fff',
+    fontWeight: '600'
+  },
+  createButton: {
+    marginTop: 20
+  },
+  checkinContainer: {
+    marginTop: 20
+  },
+  commitmentTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8
+  },
+  streakText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24
+  },
+  photoButton: {
+    height: 300,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12
+  },
+  photoButtonText: {
+    fontSize: 18,
+    color: '#666'
+  },
+  noteInput: {
+    height: 100,
+    textAlignVertical: 'top'
+  },
+  checkinButton: {
+    marginTop: 20
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+    paddingVertical: 12
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center'
+  },
+  navText: {
+    fontSize: 14,
+    color: '#666'
+  },
+  navTextActive: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '600'
+  }
+});
