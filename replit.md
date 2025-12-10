@@ -73,3 +73,36 @@ Three main entities defined in `shared/schema.ts`:
 - `DATABASE_URL`: PostgreSQL connection string
 - `EXPO_PUBLIC_DOMAIN`: API server domain for client requests
 - `REPLIT_DEV_DOMAIN` / `REPLIT_INTERNAL_APP_DOMAIN`: Replit deployment URLs
+
+## Key Features
+
+### Personalized HomeScreen
+- Time-based greeting (Good morning/afternoon/evening)
+- Identity archetype tagline from tone engine (5 archetypes: athlete, focused_creative, disciplined_builder, balanced_mind, better_everyday)
+- "Done today" stats showing check-in progress
+- Commitment cards with streak badges and category icons
+
+### Tone Engine
+Located in `client/lib/tone-engine.ts`, provides archetype-specific messaging:
+- Different taglines, greetings, and motivational messages per identity type
+- Used throughout the app for personalized UX
+
+### Check-in Flow
+- Users check in via the commitment detail screen (tap card to navigate)
+- Optional photo proof with camera or gallery
+- Streak tracking and history display
+- Query invalidation ensures UI updates after mutations
+
+### API Endpoints
+- `GET /api/check-ins/today` - Returns all check-ins for the current day
+- `POST /api/check-ins` - Create a new check-in
+- `GET /api/commitments/:id/check-ins` - Get check-in history for a commitment
+
+## Known Limitations
+
+### Web Platform
+- Quick check-in button on CommitmentCard may trigger card navigation on web due to React Native Web's touch event handling differences. Users should tap the card to access the detail screen and check in from there.
+- Native devices (via Expo Go) have better touch handling for nested interactive elements.
+
+### Returning Users
+- Returning users on a new device must complete onboarding again (no server-side onboarding check implemented yet)
