@@ -220,6 +220,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/google", async (req, res) => {
+    try {
+      const { accessToken, onboarding } = req.body;
+      if (!accessToken) {
+        return res.status(400).json({ error: "Access token is required" });
+      }
+
+      const googleUserResponse = await fetch("https://www.googleapis.com/userinfo/v2/me", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!googleUserResponse.ok) {
+        return res.status(401).json({ error: "Invalid Google token" });
+      }
+
+      const googleUser = await googleUserResponse.json() as { 
+        id: string; 
+        email: string; 
+        name?: string; 
+        picture?: string;
+      };
+
+      if (!googleUser.email) {
+        return res.status(400).json({ error: "Could not retrieve email from Google" });
+      }
+
+      let user = await storage.getUserByEmail(googleUser.email);
+      const isNewUser = !user;
+
+      if (!user) {
+        user = await storage.createUser({ 
+          email: googleUser.email,
+          displayName: googleUser.name || null,
+        });
+      }
+
+      if (isNewUser && onboarding) {
+        const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence } = onboarding;
+        
+        user = await storage.updateUserOnboarding(user.id, {
+          identityArchetype,
+          primaryGoalCategory,
+          primaryGoalReason,
+          preferredCadence,
+        });
+
+        const today = new Date().toISOString().slice(0, 10);
+        const threeMonthsLater = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        
+        const commitmentTitle = buildDefaultCommitmentTitle(identityArchetype, primaryGoalCategory);
+        
+        try {
+          await storage.createCommitment(user!.id, {
+            title: commitmentTitle,
+            category: primaryGoalCategory || "fitness",
+            cadence: preferredCadence || "daily",
+            startDate: today,
+            endDate: threeMonthsLater,
+          });
+        } catch (commitmentError) {
+          console.error("Error creating initial commitment:", commitmentError);
+        }
+      }
+
+      return res.json({ user });
+    } catch (error) {
+      console.error("Google auth error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/users/:id", async (req, res) => {
     try {
       const user = await storage.getUser(req.params.id);
