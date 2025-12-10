@@ -38,6 +38,14 @@ const CHECKLIST_ITEMS = [
 type ChecklistKey = typeof CHECKLIST_ITEMS[number]["id"];
 
 export default function DopamineLabScreen() {
+  return (
+    <ProGate feature="dopamineLab" featureName="Dopamine Lab">
+      <DopamineLabContent />
+    </ProGate>
+  );
+}
+
+function DopamineLabContent() {
   const { theme } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -114,7 +122,6 @@ export default function DopamineLabScreen() {
   }
 
   return (
-    <ProGate feature="dopamineLab" featureName="Dopamine Lab">
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={[
@@ -235,7 +242,6 @@ export default function DopamineLabScreen() {
         </View>
       </ScrollView>
     </ThemedView>
-    </ProGate>
   );
 }
 

@@ -12,16 +12,50 @@ export interface SubscriptionStatus {
   } | null;
 }
 
+async function fetchSubscriptionStatus(): Promise<SubscriptionStatus | null> {
+  try {
+    const baseUrl = getApiUrl();
+    const url = new URL("/api/stripe/subscription", baseUrl);
+    
+    const res = await fetch(url, {
+      credentials: "include",
+    });
+    
+    if (res.status === 401) {
+      return null;
+    }
+    
+    if (!res.ok) {
+      return null;
+    }
+    
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export function useSubscription() {
-  const { data, isLoading, error, refetch } = useQuery<SubscriptionStatus>({
+  const { data, isLoading, error, refetch } = useQuery<SubscriptionStatus | null>({
     queryKey: ["/api/stripe/subscription"],
-    select: (data: any) => ({
-      isPro: data.plan === "pro" && data.subscription?.status === "active",
-      plan: data.plan || "free",
-      subscription: data.subscription,
-    }),
+    queryFn: fetchSubscriptionStatus,
+    select: (data) => {
+      if (!data) {
+        return {
+          isPro: false,
+          plan: "free" as const,
+          subscription: null,
+        };
+      }
+      return {
+        isPro: data.plan === "pro" && data.subscription?.status === "active",
+        plan: data.plan || ("free" as const),
+        subscription: data.subscription,
+      };
+    },
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+    retry: false,
   });
 
   return {

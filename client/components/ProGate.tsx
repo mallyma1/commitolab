@@ -54,7 +54,7 @@ const FEATURE_DETAILS: Record<ProFeature, { icon: keyof typeof Feather.glyphMap;
 export function ProGate({ feature, featureName, children }: ProGateProps) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { isPro, isLoading } = useSubscription();
+  const { isPro, isLoading, error } = useSubscription();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const featureInfo = FEATURE_DETAILS[feature];
@@ -74,7 +74,7 @@ export function ProGate({ feature, featureName, children }: ProGateProps) {
     );
   }
 
-  if (!isPro) {
+  if (!isPro || error) {
     return (
       <ThemedView style={styles.container}>
         <View

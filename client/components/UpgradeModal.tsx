@@ -2,13 +2,13 @@ import React from "react";
 import { View, Modal, StyleSheet, Pressable, ScrollView, Platform, Linking, Alert } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { ThemedText } from "./ThemedText";
 import { Button } from "./Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 interface UpgradeModalProps {
   visible: boolean;
@@ -42,13 +42,29 @@ const PRO_BENEFITS = [
 ] as const;
 
 export function UpgradeModal({ visible, onClose, feature }: UpgradeModalProps) {
+  if (!visible) return null;
+  
+  return <UpgradeModalContent onClose={onClose} feature={feature} />;
+}
+
+function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visible'>) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const queryClient = useQueryClient();
 
   const { data: products } = useQuery<ProductWithPrices[]>({
     queryKey: ["/api/stripe/products"],
-    enabled: visible,
+    queryFn: async () => {
+      try {
+        const baseUrl = getApiUrl();
+        const url = new URL("/api/stripe/products", baseUrl);
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) return [];
+        const json = await res.json();
+        return json.data ?? json ?? [];
+      } catch {
+        return [];
+      }
+    },
   });
 
   const monthlyPrice = products?.find((p) => p.recurring?.interval === "month");
@@ -94,7 +110,7 @@ export function UpgradeModal({ visible, onClose, feature }: UpgradeModalProps) {
 
   return (
     <Modal
-      visible={visible}
+      visible={true}
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
