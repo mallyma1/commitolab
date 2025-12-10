@@ -442,6 +442,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/push-tokens", requireAuth, async (req, res) => {
+    try {
+      const { token, platform, deviceId } = req.body;
+      if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+      }
+      
+      const pushToken = await storage.savePushToken(req.userId!, token, platform, deviceId);
+      return res.json(pushToken);
+    } catch (error) {
+      console.error("Save push token error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/push-tokens", requireAuth, async (req, res) => {
+    try {
+      const tokens = await storage.getPushTokens(req.userId!);
+      return res.json(tokens);
+    } catch (error) {
+      console.error("Get push tokens error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/push-tokens/:token", requireAuth, async (req, res) => {
+    try {
+      await storage.deactivatePushToken(req.params.token);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Deactivate push token error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/objects/:objectPath(*)", async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     try {

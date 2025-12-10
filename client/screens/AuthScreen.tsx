@@ -114,19 +114,13 @@ export default function AuthScreen() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      if (Platform.OS === "web") {
-        Alert.alert(
-          "Google Sign-In",
-          "Google Sign-In is available in the mobile app. For now, please use email login.",
-          [{ text: "OK", onPress: () => setAuthMode("email") }]
-        );
-        return;
-      }
-      
       Alert.alert(
-        "Coming Soon",
-        "Google Sign-In will be available soon. Please use email or phone login for now.",
-        [{ text: "OK" }]
+        "Google Sign-In Setup Required",
+        "To enable Google Sign-In, add your GOOGLE_CLIENT_ID in the Secrets panel. Get your client ID from Google Cloud Console.",
+        [
+          { text: "Use Email Instead", onPress: () => setAuthMode("email") },
+          { text: "Cancel", style: "cancel" },
+        ]
       );
     } catch (error) {
       Alert.alert("Sign In Failed", "Something went wrong. Please try again.");
@@ -138,19 +132,13 @@ export default function AuthScreen() {
   const handleMicrosoftSignIn = async () => {
     setIsLoading(true);
     try {
-      if (Platform.OS === "web") {
-        Alert.alert(
-          "Microsoft Sign-In",
-          "Microsoft Sign-In is available in the mobile app. For now, please use email login.",
-          [{ text: "OK", onPress: () => setAuthMode("email") }]
-        );
-        return;
-      }
-      
       Alert.alert(
-        "Coming Soon",
-        "Microsoft Azure Sign-In will be available soon. Please use email or phone login for now.",
-        [{ text: "OK" }]
+        "Microsoft Sign-In Setup Required",
+        "To enable Microsoft Sign-In, add your MICROSOFT_CLIENT_ID in the Secrets panel. Get your client ID from Azure Portal.",
+        [
+          { text: "Use Email Instead", onPress: () => setAuthMode("email") },
+          { text: "Cancel", style: "cancel" },
+        ]
       );
     } catch (error) {
       Alert.alert("Sign In Failed", "Something went wrong. Please try again.");

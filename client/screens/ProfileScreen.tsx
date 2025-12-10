@@ -279,6 +279,19 @@ export default function ProfileScreen() {
       ) : null}
 
       <ThemedText type="h4" style={styles.sectionTitle}>
+        Self-Discovery
+      </ThemedText>
+
+      <Pressable
+        style={[styles.menuItem, { borderColor: theme.border }]}
+        onPress={() => navigation.navigate("SelfRegulationTest")}
+      >
+        <Feather name="clipboard" size={20} color={theme.text} />
+        <ThemedText style={styles.menuItemText}>Self-Regulation Test</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} style={styles.menuChevron} />
+      </Pressable>
+
+      <ThemedText type="h4" style={styles.sectionTitle}>
         Settings
       </ThemedText>
 

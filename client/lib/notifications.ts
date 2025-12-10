@@ -1,8 +1,11 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+import { apiRequest } from "@/lib/query-client";
 
 const NOTIFICATION_SETTINGS_KEY = "@streakproof:notification_settings";
+const PUSH_TOKEN_KEY = "@streakproof:push_token";
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -137,4 +140,61 @@ export async function sendStreakMilestone(commitmentTitle: string, streak: numbe
     },
     trigger: null,
   });
+}
+
+export async function getExpoPushToken(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+
+  try {
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId,
+    });
+    return tokenData.data;
+  } catch (error) {
+    console.log("Could not get push token:", error);
+    return null;
+  }
+}
+
+export async function registerPushToken(): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+
+  const hasPermission = await requestNotificationPermission();
+  if (!hasPermission) return null;
+
+  const token = await getExpoPushToken();
+  if (!token) return null;
+
+  const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+  if (storedToken === token) {
+    return token;
+  }
+
+  try {
+    await apiRequest("POST", "/api/push-tokens", {
+      token,
+      platform: Platform.OS,
+      deviceId: Constants.deviceId,
+    });
+    await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+    return token;
+  } catch (error) {
+    console.log("Failed to register push token:", error);
+    return null;
+  }
+}
+
+export async function unregisterPushToken(): Promise<void> {
+  if (Platform.OS === "web") return;
+
+  const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_KEY);
+  if (!storedToken) return;
+
+  try {
+    await apiRequest("DELETE", `/api/push-tokens/${encodeURIComponent(storedToken)}`);
+    await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
+  } catch (error) {
+    console.log("Failed to unregister push token:", error);
+  }
 }

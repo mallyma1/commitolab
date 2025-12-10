@@ -4,6 +4,7 @@ import {
   checkIns,
   dopamineChecklistEntries,
   stoicQuotes,
+  pushTokens,
   type User,
   type InsertUser,
   type UpdateUserProfile,
@@ -14,6 +15,7 @@ import {
   type DopamineEntry,
   type InsertDopamineEntry,
   type StoicQuote,
+  type PushToken,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lt, sql } from "drizzle-orm";
@@ -41,6 +43,11 @@ export interface IStorage {
   upsertDopamineEntry(userId: string, data: InsertDopamineEntry): Promise<DopamineEntry>;
 
   getRandomStoicQuote(tags?: string[]): Promise<StoicQuote | undefined>;
+
+  savePushToken(userId: string, token: string, platform?: string, deviceId?: string): Promise<PushToken>;
+  getPushTokens(userId: string): Promise<PushToken[]>;
+  getAllActivePushTokens(): Promise<PushToken[]>;
+  deactivatePushToken(token: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -252,6 +259,49 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
+  }
+
+  async savePushToken(userId: string, token: string, platform?: string, deviceId?: string): Promise<PushToken> {
+    const existing = await db
+      .select()
+      .from(pushTokens)
+      .where(eq(pushTokens.token, token));
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(pushTokens)
+        .set({ userId, platform, deviceId, active: true, updatedAt: new Date() })
+        .where(eq(pushTokens.token, token))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(pushTokens)
+      .values({ userId, token, platform, deviceId })
+      .returning();
+    return created;
+  }
+
+  async getPushTokens(userId: string): Promise<PushToken[]> {
+    return db
+      .select()
+      .from(pushTokens)
+      .where(and(eq(pushTokens.userId, userId), eq(pushTokens.active, true)));
+  }
+
+  async getAllActivePushTokens(): Promise<PushToken[]> {
+    return db
+      .select()
+      .from(pushTokens)
+      .where(eq(pushTokens.active, true));
+  }
+
+  async deactivatePushToken(token: string): Promise<void> {
+    await db
+      .update(pushTokens)
+      .set({ active: false, updatedAt: new Date() })
+      .where(eq(pushTokens.token, token));
   }
 }
 

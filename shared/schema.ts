@@ -194,10 +194,33 @@ export const stoicQuotes = pgTable("stoic_quotes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const pushTokens = pgTable("push_tokens", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull(),
+  platform: text("platform"),
+  deviceId: text("device_id"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   commitments: many(commitments),
   checkIns: many(checkIns),
   dopamineEntries: many(dopamineChecklistEntries),
+  pushTokens: many(pushTokens),
+}));
+
+export const pushTokensRelations = relations(pushTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [pushTokens.userId],
+    references: [users.id],
+  }),
 }));
 
 export const commitmentsRelations = relations(commitments, ({ one, many }) => ({
@@ -295,3 +318,4 @@ export type CheckIn = typeof checkIns.$inferSelect;
 export type InsertDopamineEntry = z.infer<typeof insertDopamineEntrySchema>;
 export type DopamineEntry = typeof dopamineChecklistEntries.$inferSelect;
 export type StoicQuote = typeof stoicQuotes.$inferSelect;
+export type PushToken = typeof pushTokens.$inferSelect;
