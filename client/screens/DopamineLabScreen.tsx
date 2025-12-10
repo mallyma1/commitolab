@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { ProGate } from "@/components/ProGate";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
@@ -113,6 +114,7 @@ export default function DopamineLabScreen() {
   }
 
   return (
+    <ProGate feature="dopamineLab" featureName="Dopamine Lab">
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={[
@@ -233,6 +235,7 @@ export default function DopamineLabScreen() {
         </View>
       </ScrollView>
     </ThemedView>
+    </ProGate>
   );
 }
 

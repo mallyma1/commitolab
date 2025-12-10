@@ -12,6 +12,7 @@ import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
+import { ProGate } from "@/components/ProGate";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, EarthyColors, Gradients } from "@/constants/theme";
 
@@ -113,6 +114,7 @@ export default function StoicRoomScreen() {
   const isSaved = savedQuotes.includes(currentQuote);
 
   return (
+    <ProGate feature="stoicRoom" featureName="Stoic Room">
     <LinearGradient
       colors={[EarthyColors.warmCharcoal, EarthyColors.deepEarth]}
       style={styles.container}
@@ -213,6 +215,7 @@ export default function StoicRoomScreen() {
         </Pressable>
       </View>
     </LinearGradient>
+    </ProGate>
   );
 }
 

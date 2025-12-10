@@ -18,6 +18,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
+import { ProGate } from "@/components/ProGate";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
@@ -241,6 +242,7 @@ export default function SelfRegulationTestScreen() {
 
   if (showResults && dimensionScores && profile) {
     return (
+      <ProGate feature="selfRegulationTest" featureName="Self-Regulation Test">
       <ThemedView style={styles.container}>
         <ScrollView
           contentContainerStyle={[
@@ -351,6 +353,7 @@ export default function SelfRegulationTestScreen() {
           </Animated.View>
         </ScrollView>
       </ThemedView>
+      </ProGate>
     );
   }
 
@@ -358,6 +361,7 @@ export default function SelfRegulationTestScreen() {
   const isComplete = Object.keys(answers).length === QUESTIONS.length;
 
   return (
+    <ProGate feature="selfRegulationTest" featureName="Self-Regulation Test">
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={[
@@ -485,6 +489,7 @@ export default function SelfRegulationTestScreen() {
         </View>
       </ScrollView>
     </ThemedView>
+    </ProGate>
   );
 }
 
