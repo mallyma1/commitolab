@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Image, TextInput, ActivityIndicator, Alert, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import * as AppleAuthentication from "expo-apple-authentication";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as WebBrowser from "expo-web-browser";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -13,19 +13,24 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 import { ONBOARDING_DATA_KEY, type OnboardingData } from "@/types/onboarding";
 
+WebBrowser.maybeCompleteAuthSession();
+
+type AuthMode = "select" | "email" | "phone";
+
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { login } = useAuth();
+  const [authMode, setAuthMode] = useState<AuthMode>("select");
   const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isAppleLoading, setIsAppleLoading] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
-  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
   useEffect(() => {
     loadOnboardingData();
-    checkAppleAuthAvailability();
   }, []);
 
   const loadOnboardingData = async () => {
@@ -39,14 +44,7 @@ export default function AuthScreen() {
     }
   };
 
-  const checkAppleAuthAvailability = async () => {
-    if (Platform.OS === "ios") {
-      const isAvailable = await AppleAuthentication.isAvailableAsync();
-      setAppleAuthAvailable(isAvailable);
-    }
-  };
-
-  const handleLogin = async () => {
+  const handleEmailLogin = async () => {
     if (!email.trim()) {
       Alert.alert("Email Required", "Please enter your email address");
       return;
@@ -68,27 +66,306 @@ export default function AuthScreen() {
     }
   };
 
-  const handleAppleSignIn = async () => {
-    try {
-      setIsAppleLoading(true);
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
+  const handlePhoneLogin = async () => {
+    if (!phoneNumber.trim()) {
+      Alert.alert("Phone Required", "Please enter your phone number");
+      return;
+    }
 
-      const userEmail = credential.email || `apple-${credential.user}@privaterelay.appleid.com`;
-      await login(userEmail, onboardingData || undefined);
-    } catch (error: any) {
-      if (error.code === "ERR_REQUEST_CANCELED") {
-        return;
-      }
-      Alert.alert("Sign In Failed", "Something went wrong with Apple Sign In. Please try again.");
+    const phoneRegex = /^\+?[1-9]\d{6,14}$/;
+    const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+    if (!phoneRegex.test(cleanPhone)) {
+      Alert.alert("Invalid Phone", "Please enter a valid phone number with country code");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      setShowVerification(true);
+      Alert.alert(
+        "Verification Code Sent",
+        "A verification code has been sent to your phone. Please enter it below.",
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      Alert.alert("Error", "Failed to send verification code. Please try again.");
     } finally {
-      setIsAppleLoading(false);
+      setIsLoading(false);
     }
   };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim() || verificationCode.length < 4) {
+      Alert.alert("Invalid Code", "Please enter the verification code");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+      await login(`phone-${cleanPhone}@streakproof.app`, onboardingData || undefined);
+    } catch (error) {
+      Alert.alert("Verification Failed", "Invalid code. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      if (Platform.OS === "web") {
+        Alert.alert(
+          "Google Sign-In",
+          "Google Sign-In is available in the mobile app. For now, please use email login.",
+          [{ text: "OK", onPress: () => setAuthMode("email") }]
+        );
+        return;
+      }
+      
+      Alert.alert(
+        "Coming Soon",
+        "Google Sign-In will be available soon. Please use email or phone login for now.",
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      Alert.alert("Sign In Failed", "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMicrosoftSignIn = async () => {
+    setIsLoading(true);
+    try {
+      if (Platform.OS === "web") {
+        Alert.alert(
+          "Microsoft Sign-In",
+          "Microsoft Sign-In is available in the mobile app. For now, please use email login.",
+          [{ text: "OK", onPress: () => setAuthMode("email") }]
+        );
+        return;
+      }
+      
+      Alert.alert(
+        "Coming Soon",
+        "Microsoft Azure Sign-In will be available soon. Please use email or phone login for now.",
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      Alert.alert("Sign In Failed", "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderSSOButton = (
+    label: string,
+    icon: keyof typeof Feather.glyphMap,
+    color: string,
+    onPress: () => void,
+    bgColor?: string
+  ) => (
+    <Pressable
+      style={[
+        styles.ssoButton,
+        {
+          backgroundColor: bgColor || theme.backgroundDefault,
+          borderColor: theme.border,
+        },
+      ]}
+      onPress={onPress}
+      disabled={isLoading}
+    >
+      <Feather name={icon} size={20} color={color} />
+      <ThemedText style={[styles.ssoButtonText, bgColor ? { color: "#fff" } : {}]}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+
+  const renderSelectMode = () => (
+    <View style={styles.form}>
+      {renderSSOButton(
+        "Continue with Google",
+        "globe",
+        "#4285F4",
+        handleGoogleSignIn
+      )}
+      
+      {renderSSOButton(
+        "Continue with Microsoft",
+        "briefcase",
+        "#00A4EF",
+        handleMicrosoftSignIn
+      )}
+
+      <View style={styles.divider}>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        <ThemedText style={[styles.dividerText, { color: theme.textSecondary }]}>
+          or
+        </ThemedText>
+        <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+      </View>
+
+      {renderSSOButton(
+        "Continue with Email",
+        "mail",
+        EarthyColors.terraBrown,
+        () => setAuthMode("email")
+      )}
+
+      {renderSSOButton(
+        "Continue with Phone",
+        "smartphone",
+        EarthyColors.forestGreen,
+        () => setAuthMode("phone")
+      )}
+    </View>
+  );
+
+  const renderEmailMode = () => (
+    <View style={styles.form}>
+      <Pressable style={styles.backButton} onPress={() => setAuthMode("select")}>
+        <Feather name="arrow-left" size={20} color={theme.text} />
+        <ThemedText style={styles.backButtonText}>Back to sign in options</ThemedText>
+      </Pressable>
+
+      <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
+        Email Address
+      </ThemedText>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.backgroundDefault,
+            borderColor: theme.border,
+            color: theme.text,
+          },
+        ]}
+        placeholder="Enter your email"
+        placeholderTextColor={theme.textSecondary}
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!isLoading}
+      />
+
+      <Button onPress={handleEmailLogin} disabled={isLoading} style={styles.button}>
+        {isLoading ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          "Continue"
+        )}
+      </Button>
+
+      <ThemedText style={[styles.helperText, { color: theme.textSecondary }]}>
+        We&apos;ll create an account for you if you don&apos;t have one yet.
+      </ThemedText>
+    </View>
+  );
+
+  const renderPhoneMode = () => (
+    <View style={styles.form}>
+      <Pressable
+        style={styles.backButton}
+        onPress={() => {
+          setAuthMode("select");
+          setShowVerification(false);
+          setVerificationCode("");
+        }}
+      >
+        <Feather name="arrow-left" size={20} color={theme.text} />
+        <ThemedText style={styles.backButtonText}>Back to sign in options</ThemedText>
+      </Pressable>
+
+      {!showVerification ? (
+        <>
+          <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
+            Phone Number
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.backgroundDefault,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholder="+1 (555) 123-4567"
+            placeholderTextColor={theme.textSecondary}
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isLoading}
+          />
+
+          <Button onPress={handlePhoneLogin} disabled={isLoading} style={styles.button}>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              "Send Verification Code"
+            )}
+          </Button>
+
+          <ThemedText style={[styles.helperText, { color: theme.textSecondary }]}>
+            We&apos;ll send a verification code to your phone.
+          </ThemedText>
+        </>
+      ) : (
+        <>
+          <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
+            Verification Code
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.backgroundDefault,
+                borderColor: theme.border,
+                color: theme.text,
+                textAlign: "center",
+                letterSpacing: 8,
+                fontSize: 24,
+              },
+            ]}
+            placeholder="000000"
+            placeholderTextColor={theme.textSecondary}
+            value={verificationCode}
+            onChangeText={setVerificationCode}
+            keyboardType="number-pad"
+            maxLength={6}
+            editable={!isLoading}
+          />
+
+          <Button onPress={handleVerifyCode} disabled={isLoading} style={styles.button}>
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              "Verify & Continue"
+            )}
+          </Button>
+
+          <Pressable
+            onPress={() => {
+              setShowVerification(false);
+              setVerificationCode("");
+            }}
+            style={styles.resendButton}
+          >
+            <ThemedText style={[styles.resendText, { color: theme.primary }]}>
+              Resend code
+            </ThemedText>
+          </Pressable>
+        </>
+      )}
+    </View>
+  );
 
   return (
     <KeyboardAwareScrollViewCompat
@@ -117,92 +394,38 @@ export default function AuthScreen() {
           Build unbreakable habits with behavioral science and daily accountability.
         </ThemedText>
 
-        <View style={styles.form}>
-          {appleAuthAvailable ? (
-            <>
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={
-                  isDark
-                    ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                    : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                }
-                cornerRadius={BorderRadius.sm}
-                style={styles.appleButton}
-                onPress={handleAppleSignIn}
-              />
+        {authMode === "select" && renderSelectMode()}
+        {authMode === "email" && renderEmailMode()}
+        {authMode === "phone" && renderPhoneMode()}
 
-              <View style={styles.divider}>
-                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
-                <ThemedText style={[styles.dividerText, { color: theme.textSecondary }]}>
-                  or continue with email
-                </ThemedText>
-                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+        {authMode === "select" ? (
+          <View style={styles.features}>
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.forestGreen}20` }]}>
+                <Feather name="target" size={16} color={EarthyColors.forestGreen} />
               </View>
-            </>
-          ) : null}
-
-          <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
-            Email Address
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.backgroundDefault,
-                borderColor: theme.border,
-                color: theme.text,
-              },
-            ]}
-            placeholder="Enter your email"
-            placeholderTextColor={theme.textSecondary}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isLoading && !isAppleLoading}
-          />
-
-          <Button onPress={handleLogin} disabled={isLoading || isAppleLoading} style={styles.button}>
-            {isLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              "Continue with Email"
-            )}
-          </Button>
-
-          <ThemedText style={[styles.helperText, { color: theme.textSecondary }]}>
-            We&apos;ll create an account for you if you don&apos;t have one yet.
-          </ThemedText>
-        </View>
-
-        <View style={styles.features}>
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.forestGreen}20` }]}>
-              <Feather name="target" size={16} color={EarthyColors.forestGreen} />
+              <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+                Behavioral science-based habit building
+              </ThemedText>
             </View>
-            <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
-              Behavioral science-based habit building
-            </ThemedText>
-          </View>
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.terraBrown}20` }]}>
-              <Feather name="trending-up" size={16} color={EarthyColors.terraBrown} />
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.terraBrown}20` }]}>
+                <Feather name="trending-up" size={16} color={EarthyColors.terraBrown} />
+              </View>
+              <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+                Personalized habit profile and coaching
+              </ThemedText>
             </View>
-            <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
-              Personalized habit profile and coaching
-            </ThemedText>
-          </View>
-          <View style={styles.featureItem}>
-            <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.clayRed}20` }]}>
-              <Feather name="award" size={16} color={EarthyColors.clayRed} />
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.clayRed}20` }]}>
+                <Feather name="award" size={16} color={EarthyColors.clayRed} />
+              </View>
+              <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+                Streak tracking with dopamine rewards
+              </ThemedText>
             </View>
-            <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
-              Streak tracking with dopamine rewards
-            </ThemedText>
           </View>
-        </View>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
@@ -246,10 +469,19 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 400,
   },
-  appleButton: {
-    width: "100%",
+  ssoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     height: 50,
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
     marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  ssoButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
   divider: {
     flexDirection: "row",
@@ -263,6 +495,15 @@ const styles = StyleSheet.create({
   dividerText: {
     paddingHorizontal: Spacing.md,
     fontSize: 13,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  backButtonText: {
+    fontSize: 14,
   },
   label: {
     marginBottom: Spacing.sm,
@@ -284,6 +525,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 13,
     marginTop: Spacing.md,
+  },
+  resendButton: {
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  resendText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   features: {
     marginTop: Spacing.xl * 2,
