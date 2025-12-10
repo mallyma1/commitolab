@@ -107,12 +107,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Phone number is required" });
       }
 
-      const cleanPhone = phoneNumber.replace(/\D/g, "");
-      if (cleanPhone.length < 10) {
-        return res.status(400).json({ error: "Invalid phone number" });
+      let formattedPhone: string;
+      if (phoneNumber.startsWith("+")) {
+        formattedPhone = phoneNumber.replace(/[^\d+]/g, "");
+      } else {
+        const cleanPhone = phoneNumber.replace(/\D/g, "");
+        if (cleanPhone.length < 10) {
+          return res.status(400).json({ error: "Invalid phone number" });
+        }
+        formattedPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
       }
-
-      const formattedPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
+      
+      if (formattedPhone.length < 11) {
+        return res.status(400).json({ error: "Invalid phone number format" });
+      }
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = Date.now() + 10 * 60 * 1000;
       
@@ -146,8 +154,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Phone number and code are required" });
       }
 
-      const cleanPhone = phoneNumber.replace(/\D/g, "");
-      const formattedPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
+      let formattedPhone: string;
+      if (phoneNumber.startsWith("+")) {
+        formattedPhone = phoneNumber.replace(/[^\d+]/g, "");
+      } else {
+        const cleanPhone = phoneNumber.replace(/\D/g, "");
+        formattedPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
+      }
       
       const stored = phoneVerificationCodes.get(formattedPhone);
       if (!stored) {
