@@ -3,6 +3,8 @@ import { View, StyleSheet, Image, TextInput, Pressable, Alert, Modal, FlatList }
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -14,6 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnalytics } from "@/hooks/useCommitments";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
+import { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 
 const categoryIcons: Record<string, keyof typeof Feather.glyphMap> = {
   fitness: "activity",
@@ -33,10 +36,13 @@ const avatarPresets = [
   { id: "creative", source: require("../assets/avatars/creative.png") },
 ];
 
+type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>;
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user, logout, updateUser } = useAuth();
   const { data: analytics } = useAnalytics();
@@ -273,6 +279,19 @@ export default function ProfileScreen() {
       ) : null}
 
       <ThemedText type="h4" style={styles.sectionTitle}>
+        Settings
+      </ThemedText>
+
+      <Pressable
+        style={[styles.menuItem, { borderColor: theme.border }]}
+        onPress={() => navigation.navigate("NotificationSettings")}
+      >
+        <Feather name="bell" size={20} color={theme.text} />
+        <ThemedText style={styles.menuItemText}>Notifications</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} style={styles.menuChevron} />
+      </Pressable>
+
+      <ThemedText type="h4" style={styles.sectionTitle}>
         Account
       </ThemedText>
 
@@ -507,6 +526,10 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
+    flex: 1,
+  },
+  menuChevron: {
+    marginLeft: "auto",
   },
   modalOverlay: {
     flex: 1,

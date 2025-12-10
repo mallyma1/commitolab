@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Image, TextInput, ActivityIndicator, Alert, Pressable } from "react-native";
+import { View, StyleSheet, Image, TextInput, ActivityIndicator, Alert, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
+import * as AppleAuthentication from "expo-apple-authentication";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -8,7 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 import { ONBOARDING_DATA_KEY, type OnboardingData } from "@/types/onboarding";
 
 export default function AuthScreen() {
@@ -17,10 +19,13 @@ export default function AuthScreen() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+  const [appleAuthAvailable, setAppleAuthAvailable] = useState(false);
 
   useEffect(() => {
     loadOnboardingData();
+    checkAppleAuthAvailability();
   }, []);
 
   const loadOnboardingData = async () => {
@@ -31,6 +36,13 @@ export default function AuthScreen() {
       }
     } catch (error) {
       console.error("Error loading onboarding data:", error);
+    }
+  };
+
+  const checkAppleAuthAvailability = async () => {
+    if (Platform.OS === "ios") {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      setAppleAuthAvailable(isAvailable);
     }
   };
 
@@ -56,6 +68,28 @@ export default function AuthScreen() {
     }
   };
 
+  const handleAppleSignIn = async () => {
+    try {
+      setIsAppleLoading(true);
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      const userEmail = credential.email || `apple-${credential.user}@privaterelay.appleid.com`;
+      await login(userEmail, onboardingData || undefined);
+    } catch (error: any) {
+      if (error.code === "ERR_REQUEST_CANCELED") {
+        return;
+      }
+      Alert.alert("Sign In Failed", "Something went wrong with Apple Sign In. Please try again.");
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
+
   return (
     <KeyboardAwareScrollViewCompat
       style={{ flex: 1, backgroundColor: theme.backgroundRoot }}
@@ -77,13 +111,37 @@ export default function AuthScreen() {
         </View>
 
         <ThemedText type="h1" style={styles.title}>
-          Build Your Streak
+          StreakProof
         </ThemedText>
         <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Track commitments, build accountability, and achieve your goals one day at a time.
+          Build unbreakable habits with behavioral science and daily accountability.
         </ThemedText>
 
         <View style={styles.form}>
+          {appleAuthAvailable ? (
+            <>
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={
+                  isDark
+                    ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                    : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                }
+                cornerRadius={BorderRadius.sm}
+                style={styles.appleButton}
+                onPress={handleAppleSignIn}
+              />
+
+              <View style={styles.divider}>
+                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+                <ThemedText style={[styles.dividerText, { color: theme.textSecondary }]}>
+                  or continue with email
+                </ThemedText>
+                <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
+              </View>
+            </>
+          ) : null}
+
           <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
             Email Address
           </ThemedText>
@@ -103,20 +161,47 @@ export default function AuthScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            editable={!isLoading}
+            editable={!isLoading && !isAppleLoading}
           />
 
-          <Button onPress={handleLogin} disabled={isLoading} style={styles.button}>
+          <Button onPress={handleLogin} disabled={isLoading || isAppleLoading} style={styles.button}>
             {isLoading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              "Get Started"
+              "Continue with Email"
             )}
           </Button>
 
           <ThemedText style={[styles.helperText, { color: theme.textSecondary }]}>
             We&apos;ll create an account for you if you don&apos;t have one yet.
           </ThemedText>
+        </View>
+
+        <View style={styles.features}>
+          <View style={styles.featureItem}>
+            <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.forestGreen}20` }]}>
+              <Feather name="target" size={16} color={EarthyColors.forestGreen} />
+            </View>
+            <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+              Behavioral science-based habit building
+            </ThemedText>
+          </View>
+          <View style={styles.featureItem}>
+            <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.terraBrown}20` }]}>
+              <Feather name="trending-up" size={16} color={EarthyColors.terraBrown} />
+            </View>
+            <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+              Personalized habit profile and coaching
+            </ThemedText>
+          </View>
+          <View style={styles.featureItem}>
+            <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.clayRed}20` }]}>
+              <Feather name="award" size={16} color={EarthyColors.clayRed} />
+            </View>
+            <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+              Streak tracking with dopamine rewards
+            </ThemedText>
+          </View>
         </View>
       </View>
 
@@ -161,6 +246,24 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 400,
   },
+  appleButton: {
+    width: "100%",
+    height: 50,
+    marginBottom: Spacing.md,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: Spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    paddingHorizontal: Spacing.md,
+    fontSize: 13,
+  },
   label: {
     marginBottom: Spacing.sm,
     fontSize: 14,
@@ -181,6 +284,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 13,
     marginTop: Spacing.md,
+  },
+  features: {
+    marginTop: Spacing.xl * 2,
+    width: "100%",
+    maxWidth: 400,
+    gap: Spacing.md,
+  },
+  featureItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  featureIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  featureText: {
+    fontSize: 14,
+    flex: 1,
   },
   footer: {
     paddingTop: Spacing.lg,
