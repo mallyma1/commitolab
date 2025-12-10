@@ -6,6 +6,9 @@ import { ObjectPermission } from "./objectAcl";
 import { insertCommitmentSchema, insertCheckInSchema } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
+import { getTwilioClient, getTwilioFromPhoneNumber } from "./twilioClient";
+
+const phoneVerificationCodes = new Map<string, { code: string; expiresAt: number }>();
 
 function buildDefaultCommitmentTitle(identity: string, goalCategory: string): string {
   const base = goalCategory === "custom" ? "My streak" : goalCategory.replace("_", " ");
@@ -93,6 +96,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ user });
     } catch (error) {
       console.error("Login error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/phone/send-code", async (req, res) => {
+    try {
+      const { phoneNumber } = req.body;
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+
+      const cleanPhone = phoneNumber.replace(/\D/g, "");
+      if (cleanPhone.length < 10) {
+        return res.status(400).json({ error: "Invalid phone number" });
+      }
+
+      const formattedPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = Date.now() + 10 * 60 * 1000;
+      
+      phoneVerificationCodes.set(formattedPhone, { code, expiresAt });
+
+      try {
+        const twilioClient = await getTwilioClient();
+        const fromNumber = await getTwilioFromPhoneNumber();
+        
+        await twilioClient.messages.create({
+          body: `Your StreakProof verification code is: ${code}`,
+          from: fromNumber,
+          to: formattedPhone,
+        });
+
+        return res.json({ success: true, message: "Verification code sent" });
+      } catch (twilioError) {
+        console.error("Twilio error:", twilioError);
+        return res.status(500).json({ error: "Failed to send verification code" });
+      }
+    } catch (error) {
+      console.error("Send code error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/phone/verify", async (req, res) => {
+    try {
+      const { phoneNumber, code, onboarding } = req.body;
+      if (!phoneNumber || !code) {
+        return res.status(400).json({ error: "Phone number and code are required" });
+      }
+
+      const cleanPhone = phoneNumber.replace(/\D/g, "");
+      const formattedPhone = cleanPhone.startsWith("1") ? `+${cleanPhone}` : `+1${cleanPhone}`;
+      
+      const stored = phoneVerificationCodes.get(formattedPhone);
+      if (!stored) {
+        return res.status(400).json({ error: "No verification code found. Please request a new code." });
+      }
+
+      if (Date.now() > stored.expiresAt) {
+        phoneVerificationCodes.delete(formattedPhone);
+        return res.status(400).json({ error: "Verification code expired. Please request a new code." });
+      }
+
+      if (stored.code !== code) {
+        return res.status(400).json({ error: "Invalid verification code" });
+      }
+
+      phoneVerificationCodes.delete(formattedPhone);
+
+      let user = await storage.getUserByPhone(formattedPhone);
+      const isNewUser = !user;
+      
+      if (!user) {
+        user = await storage.createUser({ phone: formattedPhone });
+      }
+
+      if (isNewUser && onboarding) {
+        const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence } = onboarding;
+        
+        user = await storage.updateUserOnboarding(user.id, {
+          identityArchetype,
+          primaryGoalCategory,
+          primaryGoalReason,
+          preferredCadence,
+        });
+
+        const today = new Date().toISOString().slice(0, 10);
+        const threeMonthsLater = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        
+        const commitmentTitle = buildDefaultCommitmentTitle(identityArchetype, primaryGoalCategory);
+        
+        try {
+          await storage.createCommitment(user!.id, {
+            title: commitmentTitle,
+            category: primaryGoalCategory || "fitness",
+            cadence: preferredCadence || "daily",
+            startDate: today,
+            endDate: threeMonthsLater,
+          });
+        } catch (commitmentError) {
+          console.error("Error creating initial commitment:", commitmentError);
+        }
+      }
+
+      return res.json({ user });
+    } catch (error) {
+      console.error("Verify code error:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -606,7 +716,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let customerId = user.stripeCustomerId;
       if (!customerId) {
-        const customer = await stripeService.createCustomer(user.email, user.id);
+        const customerEmail = user.email || user.phone || `user-${user.id}@streakproof.app`;
+        const customer = await stripeService.createCustomer(customerEmail, user.id);
         await storage.updateUserStripeInfo(user.id, { stripeCustomerId: customer.id });
         customerId = customer.id;
       }

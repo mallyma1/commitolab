@@ -79,7 +79,8 @@ export const users = pgTable("users", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
+  phone: text("phone").unique(),
   displayName: text("display_name"),
   avatarPreset: text("avatar_preset").default("yoga"),
   
@@ -251,6 +252,7 @@ export const dopamineChecklistEntriesRelations = relations(dopamineChecklistEntr
 
 export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
+  phone: true,
   displayName: true,
   avatarPreset: true,
 });
