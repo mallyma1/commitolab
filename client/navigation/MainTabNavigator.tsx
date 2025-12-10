@@ -21,16 +21,18 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       initialRouteName="HomeTab"
       screenOptions={{
-        tabBarActiveTintColor: theme.tabIconSelected,
+        tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
           position: "absolute",
           backgroundColor: Platform.select({
             ios: "transparent",
-            android: theme.backgroundRoot,
+            android: theme.backgroundDefault,
           }),
-          borderTopWidth: 0,
+          borderTopWidth: 1,
+          borderTopColor: theme.border,
           elevation: 0,
+          height: 60,
         },
         tabBarBackground: () =>
           Platform.OS === "ios" ? (
