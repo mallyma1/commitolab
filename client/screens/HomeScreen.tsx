@@ -53,7 +53,11 @@ export default function HomeScreen() {
   }, [activeCommitments]);
 
   const handleCreateNew = useCallback(() => {
-    navigation.navigate("CreateCommitment");
+    navigation.navigate("CommitmentWizard");
+  }, [navigation]);
+
+  const handleOpenStoicRoom = useCallback(() => {
+    navigation.navigate("StoicRoom");
   }, [navigation]);
 
   const handleSelectCommitment = useCallback(

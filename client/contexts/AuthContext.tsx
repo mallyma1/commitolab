@@ -11,9 +11,20 @@ interface User {
   displayName: string | null;
   avatarPreset: string | null;
   identityArchetype: string | null;
+  habitProfileType: string | null;
+  motivations: string[] | null;
+  focusArea: string | null;
+  tonePreferences: string[] | null;
+  relapseTriggers: string[] | null;
+  rewardStyle: string[] | null;
+  environmentRisks: string[] | null;
+  changeStyle: string | null;
   primaryGoalCategory: string | null;
   primaryGoalReason: string | null;
   preferredCadence: string | null;
+  themePreference: string | null;
+  plan: string | null;
+  notificationsEnabled: boolean | null;
   onboardingCompleted: boolean;
   createdAt: string;
 }

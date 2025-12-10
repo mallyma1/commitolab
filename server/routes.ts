@@ -164,6 +164,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/users/:id/behavioral-profile", async (req, res) => {
+    try {
+      const {
+        motivations,
+        focusArea,
+        tonePreferences,
+        relapseTriggers,
+        rewardStyle,
+        environmentRisks,
+        changeStyle,
+        habitProfileType,
+      } = req.body;
+      
+      const user = await storage.updateUserOnboarding(req.params.id, {
+        motivations,
+        focusArea,
+        tonePreferences: tonePreferences ? [tonePreferences] : undefined,
+        relapseTriggers,
+        rewardStyle,
+        environmentRisks,
+        changeStyle,
+        habitProfileType,
+      });
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      return res.json(user);
+    } catch (error) {
+      console.error("Update behavioral profile error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.get("/api/commitments", async (req, res) => {
     try {
       const userId = req.headers["x-session-id"] as string;

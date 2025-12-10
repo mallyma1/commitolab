@@ -6,6 +6,7 @@ export interface Commitment {
   id: string;
   userId: string;
   title: string;
+  description: string | null;
   category: string;
   cadence: string;
   startDate: string;
@@ -13,6 +14,9 @@ export interface Commitment {
   currentStreak: number;
   longestStreak: number;
   active: boolean;
+  proofMode: string | null;
+  accountabilityLevel: string | null;
+  templateId: string | null;
   createdAt: string;
 }
 
@@ -72,10 +76,14 @@ export function useCreateCommitment() {
   return useMutation({
     mutationFn: async (data: {
       title: string;
+      description?: string;
       category: string;
       cadence: string;
       startDate: string;
       endDate: string;
+      proofMode?: string;
+      accountabilityLevel?: string;
+      templateId?: string | null;
     }) => {
       const url = new URL("/api/commitments", baseUrl);
       const response = await fetch(url, {

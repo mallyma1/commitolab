@@ -8,11 +8,12 @@ import { Feather } from "@expo/vector-icons";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { HabitProfileCard } from "@/components/HabitProfileCard";
 import { ChurnPreventionModal } from "@/components/ChurnPreventionModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAnalytics } from "@/hooks/useCommitments";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 
 const categoryIcons: Record<string, keyof typeof Feather.glyphMap> = {
   fitness: "activity",
@@ -157,7 +158,18 @@ export default function ProfileScreen() {
         <ThemedText style={[styles.memberSince, { color: theme.textSecondary }]}>
           Member since {formatDate(user?.createdAt)}
         </ThemedText>
+        {user?.plan === "pro" ? (
+          <View style={[styles.proBadge, { backgroundColor: EarthyColors.gold }]}>
+            <Feather name="star" size={12} color="#fff" />
+            <ThemedText style={styles.proBadgeText}>PRO</ThemedText>
+          </View>
+        ) : null}
       </View>
+
+      <ThemedText type="h4" style={styles.sectionTitle}>
+        Your Habit Profile
+      </ThemedText>
+      <HabitProfileCard profileType={user?.habitProfileType ?? null} />
 
       <ThemedText type="h4" style={styles.sectionTitle}>
         Statistics
@@ -527,5 +539,19 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
+  },
+  proBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.xs,
+    marginTop: Spacing.sm,
+  },
+  proBadgeText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 11,
   },
 });

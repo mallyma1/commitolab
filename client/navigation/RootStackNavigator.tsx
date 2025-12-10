@@ -5,8 +5,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import AuthScreen from "@/screens/AuthScreen";
 import CreateCommitmentScreen from "@/screens/CreateCommitmentScreen";
+import CommitmentWizardScreen from "@/screens/CommitmentWizardScreen";
 import CheckInScreen from "@/screens/CheckInScreen";
 import CommitmentDetailScreen from "@/screens/CommitmentDetailScreen";
+import StoicRoomScreen from "@/screens/StoicRoomScreen";
 import { OnboardingScreen } from "@/screens/OnboardingScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,8 +23,10 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   CreateCommitment: undefined;
+  CommitmentWizard: undefined;
   CheckIn: { commitment: Commitment };
   CommitmentDetail: { commitment: Commitment };
+  StoicRoom: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -105,6 +109,14 @@ export default function RootStackNavigator() {
             }}
           />
           <Stack.Screen
+            name="CommitmentWizard"
+            component={CommitmentWizardScreen}
+            options={{
+              presentation: "modal",
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="CheckIn"
             component={CheckInScreen}
             options={{
@@ -118,6 +130,14 @@ export default function RootStackNavigator() {
             options={({ route }) => ({
               headerTitle: route.params.commitment.title,
             })}
+          />
+          <Stack.Screen
+            name="StoicRoom"
+            component={StoicRoomScreen}
+            options={{
+              presentation: "modal",
+              headerShown: false,
+            }}
           />
         </>
       )}
