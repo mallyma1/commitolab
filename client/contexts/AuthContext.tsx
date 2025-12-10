@@ -7,7 +7,8 @@ export type { OnboardingData };
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
   displayName: string | null;
   avatarPreset: string | null;
   identityArchetype: string | null;
@@ -34,6 +35,8 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, onboardingData?: OnboardingData) => Promise<void>;
+  loginWithPhone: (phone: string, code: string, onboardingData?: OnboardingData) => Promise<void>;
+  sendPhoneCode: (phone: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -80,6 +83,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Login error:", error);
+      throw error;
+    }
+  };
+
+  const sendPhoneCode = async (phone: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/phone/send-code", { phoneNumber: phone });
+      const data = await response.json();
+      return { success: true, message: data.message };
+    } catch (error) {
+      console.error("Send phone code error:", error);
+      return { success: false, message: "Failed to send verification code" };
+    }
+  };
+
+  const loginWithPhone = async (phone: string, code: string, onboardingData?: OnboardingData) => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/phone/verify", { 
+        phoneNumber: phone,
+        code,
+        onboarding: onboardingData,
+      });
+      const data = await response.json();
+      const userData = data.user;
+      setUser(userData);
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      await AsyncStorage.setItem(HAS_EVER_LOGGED_IN_KEY, "true");
+      if (onboardingData) {
+        await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
+      }
+    } catch (error) {
+      console.error("Phone login error:", error);
       throw error;
     }
   };
@@ -143,6 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
+        loginWithPhone,
+        sendPhoneCode,
         logout,
         updateUser,
         refreshUser,

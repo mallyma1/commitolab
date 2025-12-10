@@ -20,7 +20,7 @@ type AuthMode = "select" | "email" | "phone";
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const { login } = useAuth();
+  const { login, loginWithPhone, sendPhoneCode } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>("select");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -75,18 +75,23 @@ export default function AuthScreen() {
     const phoneRegex = /^\+?[1-9]\d{6,14}$/;
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
-      Alert.alert("Invalid Phone", "Please enter a valid phone number with country code");
+      Alert.alert("Invalid Phone", "Please enter a valid phone number with country code (e.g. +1 for US)");
       return;
     }
 
     setIsLoading(true);
     try {
-      setShowVerification(true);
-      Alert.alert(
-        "Verification Code Sent",
-        "A verification code has been sent to your phone. Please enter it below.",
-        [{ text: "OK" }]
-      );
+      const result = await sendPhoneCode(cleanPhone);
+      if (result.success) {
+        setShowVerification(true);
+        Alert.alert(
+          "Verification Code Sent",
+          "A verification code has been sent to your phone. Please enter it below.",
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert("Error", result.message || "Failed to send verification code. Please try again.");
+      }
     } catch (error) {
       Alert.alert("Error", "Failed to send verification code. Please try again.");
     } finally {
@@ -95,17 +100,17 @@ export default function AuthScreen() {
   };
 
   const handleVerifyCode = async () => {
-    if (!verificationCode.trim() || verificationCode.length < 4) {
-      Alert.alert("Invalid Code", "Please enter the verification code");
+    if (!verificationCode.trim() || verificationCode.length < 6) {
+      Alert.alert("Invalid Code", "Please enter the 6-digit verification code");
       return;
     }
 
     setIsLoading(true);
     try {
       const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
-      await login(`phone-${cleanPhone}@streakproof.app`, onboardingData || undefined);
+      await loginWithPhone(cleanPhone, verificationCode, onboardingData || undefined);
     } catch (error) {
-      Alert.alert("Verification Failed", "Invalid code. Please try again.");
+      Alert.alert("Verification Failed", "Invalid or expired code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -340,11 +345,25 @@ export default function AuthScreen() {
           </Button>
 
           <Pressable
-            onPress={() => {
-              setShowVerification(false);
+            onPress={async () => {
               setVerificationCode("");
+              setIsLoading(true);
+              try {
+                const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
+                const result = await sendPhoneCode(cleanPhone);
+                if (result.success) {
+                  Alert.alert("Code Sent", "A new verification code has been sent to your phone.");
+                } else {
+                  Alert.alert("Error", result.message || "Failed to resend code. Please try again.");
+                }
+              } catch (error) {
+                Alert.alert("Error", "Failed to resend code. Please try again.");
+              } finally {
+                setIsLoading(false);
+              }
             }}
             style={styles.resendButton}
+            disabled={isLoading}
           >
             <ThemedText style={[styles.resendText, { color: theme.primary }]}>
               Resend code
