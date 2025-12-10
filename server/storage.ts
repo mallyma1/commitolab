@@ -2,12 +2,18 @@ import {
   users,
   commitments,
   checkIns,
+  dopamineChecklistEntries,
+  stoicQuotes,
   type User,
   type InsertUser,
+  type UpdateUserProfile,
   type Commitment,
   type InsertCommitment,
   type CheckIn,
   type InsertCheckIn,
+  type DopamineEntry,
+  type InsertDopamineEntry,
+  type StoicQuote,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lt, sql } from "drizzle-orm";
@@ -17,6 +23,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(insertUser: InsertUser): Promise<User>;
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
+  updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined>;
 
   getCommitments(userId: string): Promise<Commitment[]>;
   getCommitment(id: string): Promise<Commitment | undefined>;
@@ -27,6 +34,13 @@ export interface IStorage {
   getCheckIns(commitmentId: string): Promise<CheckIn[]>;
   getLatestCheckIn(commitmentId: string): Promise<CheckIn | undefined>;
   createCheckIn(userId: string, data: InsertCheckIn): Promise<CheckIn>;
+  getTodayCheckIns(userId: string, today: string): Promise<CheckIn[]>;
+
+  getDopamineEntry(userId: string, date: string): Promise<DopamineEntry | undefined>;
+  getDopamineEntries(userId: string, limit?: number): Promise<DopamineEntry[]>;
+  upsertDopamineEntry(userId: string, data: InsertDopamineEntry): Promise<DopamineEntry>;
+
+  getRandomStoicQuote(tags?: string[]): Promise<StoicQuote | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -54,22 +68,36 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
+  }
+
   async updateUserOnboarding(
     id: string,
     data: {
-      identityArchetype: string;
-      primaryGoalCategory: string;
-      primaryGoalReason: string;
-      preferredCadence: string;
+      identityArchetype?: string;
+      habitProfileType?: string;
+      motivations?: string[];
+      focusArea?: string;
+      tonePreferences?: string[];
+      relapseTriggers?: string[];
+      rewardStyle?: string[];
+      environmentRisks?: string[];
+      changeStyle?: string;
+      primaryGoalCategory?: string;
+      primaryGoalReason?: string;
+      preferredCadence?: string;
     }
   ): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set({
-        identityArchetype: data.identityArchetype,
-        primaryGoalCategory: data.primaryGoalCategory,
-        primaryGoalReason: data.primaryGoalReason,
-        preferredCadence: data.preferredCadence,
+        ...data,
         onboardingCompleted: true,
       })
       .where(eq(users.id, id))
@@ -138,7 +166,7 @@ export class DatabaseStorage implements IStorage {
   async createCheckIn(userId: string, data: InsertCheckIn): Promise<CheckIn> {
     const [checkIn] = await db
       .insert(checkIns)
-      .values({ ...data, userId })
+      .values({ ...data, userId, hasPhoto: !!data.mediaUrl })
       .returning();
     return checkIn;
   }
@@ -158,6 +186,56 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(checkIns.createdAt));
+  }
+
+  async getDopamineEntry(userId: string, date: string): Promise<DopamineEntry | undefined> {
+    const [entry] = await db
+      .select()
+      .from(dopamineChecklistEntries)
+      .where(
+        and(
+          eq(dopamineChecklistEntries.userId, userId),
+          eq(dopamineChecklistEntries.date, date)
+        )
+      );
+    return entry || undefined;
+  }
+
+  async getDopamineEntries(userId: string, limit: number = 30): Promise<DopamineEntry[]> {
+    return db
+      .select()
+      .from(dopamineChecklistEntries)
+      .where(eq(dopamineChecklistEntries.userId, userId))
+      .orderBy(desc(dopamineChecklistEntries.date))
+      .limit(limit);
+  }
+
+  async upsertDopamineEntry(userId: string, data: InsertDopamineEntry): Promise<DopamineEntry> {
+    const existing = await this.getDopamineEntry(userId, data.date as string);
+    
+    if (existing) {
+      const [entry] = await db
+        .update(dopamineChecklistEntries)
+        .set(data)
+        .where(eq(dopamineChecklistEntries.id, existing.id))
+        .returning();
+      return entry;
+    }
+    
+    const [entry] = await db
+      .insert(dopamineChecklistEntries)
+      .values({ ...data, userId })
+      .returning();
+    return entry;
+  }
+
+  async getRandomStoicQuote(tags?: string[]): Promise<StoicQuote | undefined> {
+    const [quote] = await db
+      .select()
+      .from(stoicQuotes)
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
+    return quote || undefined;
   }
 }
 

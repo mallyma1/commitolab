@@ -1,0 +1,659 @@
+✅ **STREAKPROOF — MASTER IMPLEMENTATION SPEC
+
+V FINAL | COMPLETE PRODUCT BUILD INSTRUCTIONS FOR REPLIT**
+
+StreakProof must evolve from prototype into a fully realised, psychologically intelligent, premium habit-building experience.
+
+The app must deliver:
+
+Deep personalisation
+
+Behaviour-science-driven onboarding
+
+Template-driven commitments
+
+Beautiful earthy UI
+
+Optional photo check-ins with purpose
+
+Natural dopamine tracking
+
+Stoic Room (mindset layer)
+
+Daily reminders
+
+Multi-SSO
+
+Payments + Pro plan
+
+A cohesive brand system
+
+A psychologically meaningful profile section
+
+Everything below must be implemented.
+
+TASK 1 — DATA MODEL EXPANSION (Supabase SQL & App State)
+
+StreakProof must store far richer behavioural and personal data.
+
+1A. Upgrade users table
+
+Add columns (idempotent):
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS motivations TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS pain_points TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS obstacles TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS identity_archetype TEXT,
+ADD COLUMN IF NOT EXISTS tone_preferences TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS focus_area TEXT,
+ADD COLUMN IF NOT EXISTS coaching_intensity TEXT,
+ADD COLUMN IF NOT EXISTS initial_commitment_category TEXT,
+ADD COLUMN IF NOT EXISTS relapse_triggers TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS accountability_style TEXT,
+ADD COLUMN IF NOT EXISTS desired_feelings TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS reward_style TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS environment_risks TEXT[] DEFAULT '{}',
+ADD COLUMN IF NOT EXISTS change_style TEXT,
+ADD COLUMN IF NOT EXISTS habit_profile_type TEXT,
+ADD COLUMN IF NOT EXISTS personal_context JSONB DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS self_regulation_profile JSONB DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS theme_preference TEXT DEFAULT 'system',
+ADD COLUMN IF NOT EXISTS plan TEXT DEFAULT 'free',
+ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN DEFAULT true,
+ADD COLUMN IF NOT EXISTS reminder_channel TEXT DEFAULT 'email',
+ADD COLUMN IF NOT EXISTS reminder_time_local TIME,
+ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/London',
+ADD COLUMN IF NOT EXISTS last_stoic_seen_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS stoic_style TEXT,
+ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+
+1B. Upgrade commitments
+ALTER TABLE commitments
+ADD COLUMN IF NOT EXISTS proof_mode TEXT DEFAULT 'flexible';
+
+
+Allowed:
+
+none
+
+note_only
+
+photo_optional
+
+photo_required
+
+1C. Upgrade checkins
+ALTER TABLE checkins
+ADD COLUMN IF NOT EXISTS has_photo BOOLEAN DEFAULT FALSE;
+
+1D. Add dopamine checklist table
+CREATE TABLE IF NOT EXISTS dopamine_checklist_entries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  moved_body BOOLEAN DEFAULT FALSE,
+  daylight BOOLEAN DEFAULT FALSE,
+  social BOOLEAN DEFAULT FALSE,
+  creative BOOLEAN DEFAULT FALSE,
+  music BOOLEAN DEFAULT FALSE,
+  learning BOOLEAN DEFAULT FALSE,
+  cold_exposure BOOLEAN DEFAULT FALSE,
+  protected_sleep BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+1E. Add subscriptions + push tokens
+
+(From previous spec; keep unchanged.)
+
+TASK 2 — THE NEXT-GEN BEHAVIOURAL-SCIENCE ONBOARDING EXPERIENCE
+
+Replace existing onboarding entirely.
+
+This onboarding must feel scientific, aesthetic, cinematic, personal, and meaningful.
+
+2.1 OVERALL FEEL
+
+Full-screen cards
+
+Short copy
+
+Each screen either educates, asks, or reflects
+
+Seamless transitions (fade + vertical slide)
+
+Earthy palette with deep warmth
+
+Subtle ambient motion
+
+Non-judgmental, aspirational tone
+
+App never interrogates; it guides, affirms, and understands
+
+2.2 ONBOARDING STRUCTURE (8–10 screens)
+Screen 1 — Cinematic Identity Framing (no input)
+
+Title:
+“Most people break promises to themselves.”
+Subtitle:
+“You’re not here to be most people.”
+
+Large earthy gradient background.
+Single button: Continue.
+
+Screen 2 — The Scientific Promise (no input)
+
+Title:
+“This is where discipline becomes visible.”
+Subtitle:
+“Your habits turn into proof. Your proof turns into identity.”
+
+Short knowledge microcard:
+“Small consistent actions create stronger habits than intense bursts.”
+
+SCIENTIFIC MICROCARDS (AUTO-INSERTED BETWEEN QUESTIONS)
+
+Use these 1-line behavioural truths:
+
+“Most habits run on a loop: cue → action → reward. Repetition strengthens the loop.”
+
+“Visual logs make progress more memorable than text alone.”
+
+“Environment often overrides willpower. Adjusting cues is more effective than forcing action.”
+
+“The brain rewards consistency with dopamine — especially when progress is visible.”
+
+“Identity-based habits (‘I’m the type of person who…’) last longer than outcome goals.”
+
+These are displayed as tasteful mini info-blocks, not full screens.
+
+Screen 3 — Transformation Intent (multi-select)
+
+“What transformation are you aiming for?”
+
+More discipline
+
+More focus
+
+Better routine
+
+More energy
+
+Mental clarity
+
+Feeling in control
+
+Inner calm
+
+Restarting strong
+
+Becoming my best self
+Store: motivations[]
+
+Screen 4 — Focus Area (single)
+
+“Where do you need the biggest shift?”
+
+Mind
+
+Body
+
+Work
+
+Lifestyle
+
+Creativity
+Store: focus_area
+
+Screen 5 — Tone Preference (single)
+
+“How should StreakProof speak to you?”
+
+Direct
+
+Calm
+
+Data-driven
+
+Encouraging
+
+Stoic
+Store: tone_preferences[]
+
+Screen 6 — Off-Track Triggers (multi)
+
+“What usually pulls you off track?”
+
+Distractions
+
+Overwhelm
+
+Low energy
+
+Losing momentum
+
+Forgetfulness
+
+Emotional dips
+
+Lack of structure
+Store: relapse_triggers[]
+
+Screen 7 — Reward Style (scientific self-report)
+
+“What keeps you returning to a habit?”
+
+Feeling better mentally
+
+Seeing progress
+
+External rewards
+
+Building identity
+
+Avoiding negative outcomes
+Store: reward_style[]
+
+Include a micro-tip:
+“Dopamine responds to rewards, but natural activities like movement, sunlight and connection support healthier motivation than quick digital hits.”
+
+Screen 8 — Environment & Context (multi)
+
+“What does your environment look like when habits slip?”
+
+Chaotic schedule
+
+Phone always nearby
+
+No routine space
+
+Unsupportive people
+
+Evenings messy
+
+Mornings rushed
+Store: environment_risks[]
+
+Screen 9 — Change Style (single)
+
+“How do you usually approach change?”
+
+I go all-in fast
+
+I build slowly
+
+I wait until I feel ready
+
+I try many things at once
+Store: change_style
+
+Screen 10 — Habit Profile Result (auto-generated)
+
+Create a named profile by combining:
+
+motivations
+
+focus_area
+
+reward_style
+
+change_style
+
+coaching_intensity
+
+relapse_triggers
+
+Possible profile names:
+
+Structured Rebuilder
+
+High-Drive Sprinter
+
+Gentle Sustainer
+
+Quiet Strategist
+
+Identity Builder
+
+Display:
+
+Strengths (2–3)
+
+Risk zones (2–3)
+
+Best-practice strategies
+
+Example:
+“You’re a High-Drive Sprinter. You move fast when motivated, but risk burning out when momentum drops. Small, visible wins and consistent cues will be your foundation.”
+
+Button: Build my first streak
+Set onboarding_completed = true.
+
+TASK 3 — SMART COMMITMENT CREATION WIZARD
+
+Replace existing flow with a 3-step intelligent wizard.
+
+STEP 1 — Recommendations
+
+Based on Habit Profile show 4–6 templates.
+
+Examples:
+
+If Mind + clarity:
+
+10 min journaling
+
+5 min breathing
+
+Digital sunrise (no phone for first 30 min)
+
+If Body + discipline:
+
+Move for 20 min
+
+Hydration streak
+
+Sleep before midnight
+
+If Work + focus:
+
+25 min deep work
+
+No scroll mornings
+
+Plan tomorrow before bed
+
+Also include “Custom streak”.
+
+STEP 2 — Details
+
+Fields:
+
+Title
+
+Description
+
+Cadence
+
+Start date (Today / Tomorrow)
+
+Proof type (maps to proof_mode)
+
+STEP 3 — Accountability
+
+Soft / Standard / Strict
+Store as accountability_level (new field).
+
+Insert into commitments + animate card highlight.
+
+TASK 4 — INTELLIGENT CHECK-IN FLOW (PHOTO OPTIONAL WITH PURPOSE)
+
+Enhance the check-in experience based on proof_mode.
+
+None
+
+Just a confirmation modal.
+
+Note only
+
+Show required note field.
+
+Photo optional
+
+Add explainer:
+“Photos make progress more memorable and meaningful.”
+
+Photo required
+
+Add explainer:
+“This streak builds identity through visible proof.”
+
+Upload to storage → insert → update streak.
+
+TASK 5 — EARTHY PREMIUM THEME SYSTEM
+
+Define:
+
+Dark mode base:
+Deep charcoal with warm undertones.
+
+Light mode base:
+Warm off-white with a sand undertone.
+
+Earth tones:
+
+Terra brown
+
+Clay red
+
+Forest green
+
+Smoke grey
+
+Sand beige
+
+Copper gradient accents
+
+Theme behaviour:
+
+user.theme_preference = system/light/dark
+
+Use Appearance API on native
+
+Use prefers-color-scheme on web
+
+Apply via context
+
+Update UI components to match new aesthetic
+
+TASK 6 — PROFILE AS A SELF-UNDERSTANDING HUB
+
+Sections:
+
+6.1 Identity Header
+
+Avatar
+
+Display name
+
+One-sentence identity statement
+
+Identity colour-chip (mapped to habit profile)
+
+6.2 Habit Profile Card
+
+Repeats info from onboarding:
+
+Profile name
+
+Strengths
+
+Risks
+
+Expand to full details
+
+“Reassess my profile”
+
+6.3 Personality & Self-Regulation Test
+
+A 10–12 question in-app test.
+Dimensions:
+
+Structure vs spontaneity
+
+Data vs feeling
+
+Social vs solo energy
+
+Long-term planning vs short-term action
+
+Results stored in self_regulation_profile JSON.
+Visualised with bar graphs.
+
+6.4 Personal Context Card
+
+Allow user to specify:
+
+Sleep preference
+
+Work rhythm
+
+Stressors
+
+Responsibilities
+
+Store in personal_context JSON.
+
+6.5 Settings
+
+SSO providers
+
+Notifications
+
+Theme
+
+Billing
+
+Privacy
+
+Logout
+
+TASK 7 — MULTI-SSO INTEGRATION
+
+Enable:
+
+Email
+
+Phone
+
+Google
+
+Microsoft
+
+Apple (later)
+
+Facebook (optional)
+
+Ensure:
+
+signInWithOtp
+
+signInWithOAuth
+
+Post-auth user row creation
+
+Redirect based on onboarding_completed
+
+TASK 8 — STOIC ROOM + DOPAMINE LAB (NEXT-LEVEL)
+
+Two tabs:
+
+TAB A — STOIC ROOM
+
+Beautiful quote cards + tone alignment.
+Features:
+
+Quote card
+
+Source
+
+“Why this quote?” behaviour explanation
+
+Next quote button
+
+Save/share
+
+Tag-driven selection
+
+Earthy gradient background
+
+Daily quote limit for free users
+
+TAB B — DOPAMINE LAB
+
+Education block:
+Simple non-medical explanation of dopamine and natural rewards.
+
+Daily Natural Reward Checklist:
+
+Moved body
+
+Got daylight
+
+Social connection
+
+Creativity
+
+Music
+
+Learned something
+
+Cold exposure
+
+Protected sleep
+
+Stores into dopamine_checklist_entries.
+
+Score + Reflection:
+Displays daily score 0–8.
+Generates simple insights.
+
+TASK 9 — REMINDERS + NOTIFICATION ENGINE
+
+Push tokens (Expo)
+
+Email reminders
+
+Reminder time + timezone
+
+Cron job every 5–10 min
+
+Tone-based message templates
+
+Optionally incorporate Dopamine Lab (gentle nudges)
+
+TASK 10 — PAYMENTS + PRO PLAN + DEPLOYMENT
+PLAN
+
+Free:
+
+1 streak
+
+Limited Stoic
+
+Limited dopamine entries
+
+Basic check-ins
+
+Pro:
+
+Unlimited streaks
+
+Full Stoic
+
+Full Dopamine Lab
+
+Advanced analytics
+
+Priority support
+
+Stripe
+
+Setup Checkout session
+
+Webhook listener
+
+Update users.plan and subscriptions table
+
+Upgrade CTAs across UI
+
+Deployment
+
+Web → Vercel
+
+Mobile → Expo EAS
+
+Environment variables for Supabase + Stripe
+
+Test onboarding → commitment → check-in → dopamine → profile → upgrade flow end-to-end.
