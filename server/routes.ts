@@ -143,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (isNewUser && onboarding) {
-        const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence } = onboarding;
+        const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence, selectedRecommendations } = onboarding;
         
         user = await storage.updateUserOnboarding(user.id, {
           identityArchetype,
@@ -155,18 +155,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const today = new Date().toISOString().slice(0, 10);
         const threeMonthsLater = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
         
-        const commitmentTitle = buildDefaultCommitmentTitle(identityArchetype, primaryGoalCategory);
-        
-        try {
-          await storage.createCommitment(user!.id, {
-            title: commitmentTitle,
-            category: primaryGoalCategory || "fitness",
-            cadence: preferredCadence || "daily",
-            startDate: today,
-            endDate: threeMonthsLater,
-          });
-        } catch (commitmentError) {
-          console.error("Error creating initial commitment:", commitmentError);
+        if (selectedRecommendations && Array.isArray(selectedRecommendations) && selectedRecommendations.length > 0) {
+          for (const rec of selectedRecommendations) {
+            try {
+              await storage.createCommitment(user!.id, {
+                title: rec.title || "My streak",
+                category: rec.category || "fitness",
+                cadence: rec.cadence || "daily",
+                startDate: today,
+                endDate: threeMonthsLater,
+              });
+            } catch (commitmentError) {
+              console.error("Error creating commitment from recommendation:", commitmentError);
+            }
+          }
+        } else {
+          const commitmentTitle = buildDefaultCommitmentTitle(identityArchetype, primaryGoalCategory);
+          try {
+            await storage.createCommitment(user!.id, {
+              title: commitmentTitle,
+              category: primaryGoalCategory || "fitness",
+              cadence: preferredCadence || "daily",
+              startDate: today,
+              endDate: threeMonthsLater,
+            });
+          } catch (commitmentError) {
+            console.error("Error creating initial commitment:", commitmentError);
+          }
         }
       }
 
