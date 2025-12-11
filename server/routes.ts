@@ -1048,16 +1048,47 @@ Respond with valid JSON in this exact format:
 `;
   }
 
+  function buildFallbackSummary(payload: OnboardingPayload): HabitProfileSummary {
+    const focusArea = payload.focus_domains?.[0] || "personal growth";
+    const style = payload.change_style || "steady";
+    return {
+      profile_name: style === "intensive" ? "Focused Achiever" : style === "micro" ? "Steady Builder" : "Balanced Practitioner",
+      strengths: [
+        "You have self-awareness about your patterns",
+        "You are motivated to make positive changes",
+        `You have clear focus on ${focusArea}`,
+      ],
+      risk_zones: [
+        "Taking on too much at once can lead to burnout",
+        "Inconsistent environments may disrupt routines",
+        "High expectations without flexibility can cause setbacks",
+      ],
+      best_practices: [
+        "Start with one small commitment and build from there",
+        "Track your progress daily to stay accountable",
+        "Adjust your approach when something is not working",
+      ],
+    };
+  }
+
+  const OPENAI_TIMEOUT_MS = 20000;
+
   app.post("/api/onboarding/summary", async (req, res) => {
+    const payload = req.body as OnboardingPayload;
+    
+    if (!openai) {
+      console.log("OpenAI not configured, using fallback summary");
+      return res.json(buildFallbackSummary(payload));
+    }
+
     try {
-      if (!openai) {
-        return res.status(503).json({ error: "OpenAI not configured" });
-      }
-
-      const payload = req.body as OnboardingPayload;
       const prompt = buildProfilePrompt(payload);
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("OpenAI timeout")), OPENAI_TIMEOUT_MS);
+      });
 
-      const completion = await openai.chat.completions.create({
+      const completionPromise = openai.chat.completions.create({
         model: process.env.OPENAI_MODEL_PROFILE || "gpt-4.1-mini",
         messages: [
           {
@@ -1074,16 +1105,19 @@ Respond with valid JSON in this exact format:
         max_tokens: 450,
       });
 
+      const completion = await Promise.race([completionPromise, timeoutPromise]);
       const content = completion.choices[0]?.message?.content;
+      
       if (!content) {
-        return res.status(500).json({ error: "No content from OpenAI" });
+        console.log("No content from OpenAI, using fallback summary");
+        return res.json(buildFallbackSummary(payload));
       }
 
       const json = JSON.parse(content) as HabitProfileSummary;
       return res.json(json);
     } catch (err) {
-      console.error("Error in /api/onboarding/summary", err);
-      return res.status(500).json({ error: "Failed to generate summary" });
+      console.error("Error in /api/onboarding/summary, using fallback:", err);
+      return res.json(buildFallbackSummary(payload));
     }
   });
 
@@ -1127,20 +1161,70 @@ Respond with valid JSON in this exact format:
 `;
   }
 
+  function buildFallbackRecommendations(payload: OnboardingPayload): { commitments: CommitmentRecommendation[] } {
+    const focusArea = payload.focus_domains?.[0] || "wellness";
+    const style = payload.change_style || "steady";
+    
+    const baseCommitments: CommitmentRecommendation[] = [
+      {
+        title: "Morning Check-in",
+        short_description: "Start your day with intention by reviewing your goals",
+        cadence: "daily",
+        proof_mode: "tick_only",
+        reason: "Building awareness of daily priorities helps maintain focus",
+      },
+      {
+        title: "Evening Reflection",
+        short_description: "Take 5 minutes to note what went well today",
+        cadence: "daily",
+        proof_mode: "tick_only",
+        reason: "Reflecting on progress reinforces positive habits",
+      },
+      {
+        title: "Weekly Review",
+        short_description: "Review your week and plan the next one",
+        cadence: "weekly",
+        proof_mode: "tick_only",
+        reason: "Regular reviews help you stay on track with larger goals",
+      },
+    ];
+    
+    if (focusArea === "fitness" || focusArea === "health") {
+      baseCommitments.unshift({
+        title: "Movement Break",
+        short_description: "Get up and move for at least 10 minutes",
+        cadence: "daily",
+        proof_mode: "tick_only",
+        reason: "Regular movement improves energy and focus throughout the day",
+      });
+    }
+    
+    if (style === "micro") {
+      return { commitments: baseCommitments.slice(0, 2) };
+    }
+    
+    return { commitments: baseCommitments };
+  }
+
   app.post("/api/onboarding/recommendations", async (req, res) => {
+    const {
+      payload,
+      summary,
+    }: { payload: OnboardingPayload; summary: HabitProfileSummary } = req.body;
+
+    if (!openai) {
+      console.log("OpenAI not configured, using fallback recommendations");
+      return res.json(buildFallbackRecommendations(payload));
+    }
+
     try {
-      if (!openai) {
-        return res.status(503).json({ error: "OpenAI not configured" });
-      }
-
-      const {
-        payload,
-        summary,
-      }: { payload: OnboardingPayload; summary: HabitProfileSummary } = req.body;
-
       const prompt = buildRecommendationsPrompt(payload, summary);
 
-      const completion = await openai.chat.completions.create({
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("OpenAI timeout")), OPENAI_TIMEOUT_MS);
+      });
+
+      const completionPromise = openai.chat.completions.create({
         model: process.env.OPENAI_MODEL_RECS || "gpt-4.1-mini",
         messages: [
           {
@@ -1157,9 +1241,12 @@ Respond with valid JSON in this exact format:
         max_tokens: 600,
       });
 
+      const completion = await Promise.race([completionPromise, timeoutPromise]);
       const content = completion.choices[0]?.message?.content;
+      
       if (!content) {
-        return res.status(500).json({ error: "No content from OpenAI" });
+        console.log("No content from OpenAI, using fallback recommendations");
+        return res.json(buildFallbackRecommendations(payload));
       }
 
       const json = JSON.parse(content) as {
@@ -1168,8 +1255,8 @@ Respond with valid JSON in this exact format:
 
       return res.json(json);
     } catch (err) {
-      console.error("Error in /api/onboarding/recommendations", err);
-      return res.status(500).json({ error: "Failed to generate recommendations" });
+      console.error("Error in /api/onboarding/recommendations, using fallback:", err);
+      return res.json(buildFallbackRecommendations(payload));
     }
   });
 
