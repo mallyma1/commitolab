@@ -30,6 +30,12 @@ interface User {
   createdAt: string;
 }
 
+interface AppleCredential {
+  identityToken: string;
+  email?: string | null;
+  fullName?: { givenName?: string | null; familyName?: string | null } | null;
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -38,6 +44,7 @@ interface AuthContextType {
   loginWithPhone: (phone: string, code: string, onboardingData?: OnboardingData) => Promise<void>;
   sendPhoneCode: (phone: string) => Promise<{ success: boolean; message?: string }>;
   loginWithGoogle: (accessToken: string, onboardingData?: OnboardingData) => Promise<void>;
+  loginWithApple: (credential: AppleCredential, onboardingData?: OnboardingData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -140,6 +147,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginWithApple = async (credential: AppleCredential, onboardingData?: OnboardingData) => {
+    try {
+      const response = await apiRequest("POST", "/api/auth/apple", { 
+        identityToken: credential.identityToken,
+        email: credential.email,
+        fullName: credential.fullName,
+        onboarding: onboardingData,
+      });
+      const data = await response.json();
+      const userData = data.user;
+      setUser(userData);
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      await AsyncStorage.setItem(HAS_EVER_LOGGED_IN_KEY, "true");
+      if (onboardingData) {
+        await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
+      }
+    } catch (error) {
+      console.error("Apple login error:", error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
@@ -202,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithPhone,
         sendPhoneCode,
         loginWithGoogle,
+        loginWithApple,
         logout,
         updateUser,
         refreshUser,

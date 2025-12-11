@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import https from "node:https";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
@@ -7,6 +8,76 @@ import { insertCommitmentSchema, insertCheckInSchema } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { getTwilioClient, getTwilioFromPhoneNumber } from "./twilioClient";
+
+function httpsGet(url: string, headers?: Record<string, string>): Promise<{ ok: boolean; status: number; json: () => Promise<any> }> {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const options = {
+      hostname: urlObj.hostname,
+      path: urlObj.pathname + urlObj.search,
+      method: "GET",
+      headers: headers || {},
+    };
+
+    const req = https.request(options, (res) => {
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        resolve({
+          ok: res.statusCode ? res.statusCode >= 200 && res.statusCode < 300 : false,
+          status: res.statusCode || 500,
+          json: () => {
+            try {
+              if (!data || data.trim() === "") {
+                return Promise.reject(new Error("Empty response body"));
+              }
+              return Promise.resolve(JSON.parse(data));
+            } catch (e) {
+              return Promise.reject(new Error(`Invalid JSON response: ${data.substring(0, 100)}`));
+            }
+          },
+        });
+      });
+    });
+
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+function decodeBase64Url(str: string): string {
+  const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - base64.length % 4) % 4);
+  return Buffer.from(padded, "base64").toString("utf8");
+}
+
+function validateAppleIdentityToken(identityToken: string, bundleId?: string): { valid: boolean; payload?: any; error?: string } {
+  try {
+    const parts = identityToken.split(".");
+    if (parts.length !== 3) {
+      return { valid: false, error: "Invalid token format" };
+    }
+
+    const payload = JSON.parse(decodeBase64Url(parts[1]));
+
+    if (payload.iss !== "https://appleid.apple.com") {
+      return { valid: false, error: "Invalid token issuer" };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) {
+      return { valid: false, error: "Token has expired" };
+    }
+
+    if (payload.iat && payload.iat > now + 300) {
+      return { valid: false, error: "Token issued in the future" };
+    }
+
+    return { valid: true, payload };
+  } catch (e) {
+    return { valid: false, error: "Failed to parse token" };
+  }
+}
 
 const phoneVerificationCodes = new Map<string, { code: string; expiresAt: number }>();
 
@@ -227,8 +298,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Access token is required" });
       }
 
-      const googleUserResponse = await fetch("https://www.googleapis.com/userinfo/v2/me", {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const googleUserResponse = await httpsGet("https://www.googleapis.com/userinfo/v2/me", {
+        Authorization: `Bearer ${accessToken}`,
       });
 
       if (!googleUserResponse.ok) {
@@ -240,7 +311,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: string; 
         name?: string; 
         picture?: string;
+        verified_email?: boolean;
       };
+
+      if (googleUser.verified_email === false) {
+        return res.status(400).json({ error: "Google email not verified" });
+      }
 
       if (!googleUser.email) {
         return res.status(400).json({ error: "Could not retrieve email from Google" });
@@ -287,6 +363,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ user });
     } catch (error) {
       console.error("Google auth error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/auth/apple", async (req, res) => {
+    try {
+      const { identityToken, email, fullName, onboarding } = req.body;
+      
+      if (!identityToken) {
+        return res.status(400).json({ error: "Identity token is required" });
+      }
+
+      const validation = validateAppleIdentityToken(identityToken);
+      if (!validation.valid || !validation.payload) {
+        console.error("Apple token validation failed:", validation.error);
+        return res.status(401).json({ error: validation.error || "Invalid Apple token" });
+      }
+
+      const payload = validation.payload;
+      const appleUserId = payload.sub;
+      const tokenEmail = payload.email || email;
+
+      if (!appleUserId) {
+        return res.status(400).json({ error: "Could not retrieve Apple user ID" });
+      }
+
+      let user = tokenEmail ? await storage.getUserByEmail(tokenEmail) : null;
+      const isNewUser = !user;
+
+      if (!user) {
+        const displayName = fullName?.givenName 
+          ? `${fullName.givenName}${fullName.familyName ? ` ${fullName.familyName}` : ""}`
+          : null;
+
+        user = await storage.createUser({ 
+          email: tokenEmail || null,
+          displayName,
+        });
+      }
+
+      if (isNewUser && onboarding) {
+        const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence } = onboarding;
+        
+        user = await storage.updateUserOnboarding(user.id, {
+          identityArchetype,
+          primaryGoalCategory,
+          primaryGoalReason,
+          preferredCadence,
+        });
+
+        const today = new Date().toISOString().slice(0, 10);
+        const threeMonthsLater = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        
+        const commitmentTitle = buildDefaultCommitmentTitle(identityArchetype, primaryGoalCategory);
+        
+        try {
+          await storage.createCommitment(user!.id, {
+            title: commitmentTitle,
+            category: primaryGoalCategory || "fitness",
+            cadence: preferredCadence || "daily",
+            startDate: today,
+            endDate: threeMonthsLater,
+          });
+        } catch (commitmentError) {
+          console.error("Error creating initial commitment:", commitmentError);
+        }
+      }
+
+      return res.json({ user });
+    } catch (error) {
+      console.error("Apple auth error:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });

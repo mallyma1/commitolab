@@ -1,8 +1,8 @@
-# Streak Tracker
+# StreakProof
 
 ## Overview
 
-Streak Tracker is a React Native mobile application built with Expo for tracking personal commitments and maintaining streaks. Users can create commitments in various categories (fitness, reading, meditation, etc.), check in daily/weekly/monthly, and track their progress over time. The app runs on iOS, Android, and web platforms with a shared Express backend.
+StreakProof is a premium React Native mobile application built with Expo for tracking personal commitments and building lasting habits. Users can create commitments in various categories (fitness, reading, meditation, etc.), check in daily/weekly/monthly, and track their progress with behavioral science-driven features. The app runs on iOS, Android, and web platforms with a shared Express backend.
 
 ## User Preferences
 
@@ -20,7 +20,7 @@ Preferred communication style: Simple, everyday language.
   - TanStack React Query for server state and API caching
   - React Context for authentication state
   - AsyncStorage for persistent local storage
-- **UI Components**: Custom themed components with Reanimated animations
+- **UI Components**: Custom themed components with Reanimated animations, earthy color palette
 - **Styling**: StyleSheet-based with a centralized theme system supporting light/dark modes
 
 ### Backend Architecture
@@ -28,11 +28,16 @@ Preferred communication style: Simple, everyday language.
 - **Database**: PostgreSQL with Drizzle ORM
 - **API Pattern**: RESTful endpoints with session-based auth via `x-session-id` header
 - **File Storage**: Google Cloud Storage integration for photo uploads
+- **Payments**: Stripe integration for Pro tier subscriptions
 
-### Authentication
-- Simple email-based login (stores user in AsyncStorage)
-- Session ID passed in request headers for API authentication
-- No magic link or OAuth implemented yet (design guidelines mention future Supabase integration)
+### Authentication (Multi-SSO)
+Four authentication methods supported:
+- **Email**: Simple email-based login via `/api/auth/login`
+- **Phone SMS**: Two-step verification with Twilio via `/api/auth/phone/send-code` and `/api/auth/phone/verify`
+- **Google OAuth**: Access token verification via `/api/auth/google` using Node.js https module
+- **Apple Sign-In**: Identity token validation via `/api/auth/apple` (iOS only, with token issuer/expiry checks)
+
+Session ID passed in request headers for API authentication.
 
 ### Onboarding Flow
 New users go through a 4-step onboarding flow after login:

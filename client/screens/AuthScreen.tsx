@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
-import { makeRedirectUri } from "expo-auth-session";
+import * as AppleAuthentication from "expo-apple-authentication";
 import Constants from "expo-constants";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -25,7 +25,7 @@ const GOOGLE_WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleWebClientId || p
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const { login, loginWithPhone, sendPhoneCode, loginWithGoogle } = useAuth();
+  const { login, loginWithPhone, sendPhoneCode, loginWithGoogle, loginWithApple } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>("select");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -176,19 +176,43 @@ export default function AuthScreen() {
     }
   };
 
-  const handleMicrosoftSignIn = async () => {
-    setIsLoading(true);
-    try {
+  const handleAppleSignIn = async () => {
+    if (Platform.OS === "web") {
       Alert.alert(
-        "Microsoft Sign-In Setup Required",
-        "To enable Microsoft Sign-In, add your MICROSOFT_CLIENT_ID in the Secrets panel. Get your client ID from Azure Portal.",
+        "Apple Sign-In",
+        "Apple Sign-In is only available on iOS devices. Please use email or phone instead.",
         [
-          { text: "Use Email Instead", onPress: () => setAuthMode("email") },
+          { text: "Use Email", onPress: () => setAuthMode("email") },
           { text: "Cancel", style: "cancel" },
         ]
       );
-    } catch (error) {
-      Alert.alert("Sign In Failed", "Something went wrong. Please try again.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (credential.identityToken) {
+        await loginWithApple({
+          identityToken: credential.identityToken,
+          email: credential.email,
+          fullName: credential.fullName,
+        }, onboardingData || undefined);
+      } else {
+        throw new Error("No identity token received");
+      }
+    } catch (error: any) {
+      if (error.code === "ERR_REQUEST_CANCELED") {
+        return;
+      }
+      console.error("Apple sign-in error:", error);
+      Alert.alert("Sign In Failed", "Could not sign in with Apple. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -228,12 +252,13 @@ export default function AuthScreen() {
         handleGoogleSignIn
       )}
       
-      {renderSSOButton(
-        "Continue with Microsoft",
-        "briefcase",
-        "#00A4EF",
-        handleMicrosoftSignIn
-      )}
+      {Platform.OS === "ios" ? renderSSOButton(
+        "Continue with Apple",
+        "smartphone",
+        isDark ? "#FFFFFF" : "#000000",
+        handleAppleSignIn,
+        isDark ? "#000000" : "#FFFFFF"
+      ) : null}
 
       <View style={styles.divider}>
         <View style={[styles.dividerLine, { backgroundColor: theme.border }]} />
