@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
+import { getApiUrl } from "@/lib/query-client";
 import type {
   OnboardingPayload,
   HabitProfileSummary,
@@ -22,6 +23,9 @@ export function useOnboardingState() {
   const [recommendations, setRecommendations] = useState<
     CommitmentRecommendation[]
   >([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const prefetchStartedRef = useRef(false);
 
   function update<K extends keyof OnboardingPayload>(
     key: K,
@@ -30,6 +34,43 @@ export function useOnboardingState() {
     setPayload((prev) => ({ ...prev, [key]: value }));
   }
 
+  const prefetchAI = useCallback(async (currentPayload: OnboardingPayload) => {
+    if (prefetchStartedRef.current) return;
+    prefetchStartedRef.current = true;
+    
+    setAiLoading(true);
+    setAiError(null);
+    
+    try {
+      const summaryUrl = new URL("/api/onboarding/summary", getApiUrl());
+      const summaryRes = await fetch(summaryUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(currentPayload),
+      });
+      
+      if (!summaryRes.ok) throw new Error("Failed to fetch summary");
+      const summaryData = await summaryRes.json() as HabitProfileSummary;
+      setSummary(summaryData);
+      
+      const recsUrl = new URL("/api/onboarding/recommendations", getApiUrl());
+      const recsRes = await fetch(recsUrl.toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payload: currentPayload, summary: summaryData }),
+      });
+      
+      if (!recsRes.ok) throw new Error("Failed to fetch recommendations");
+      const recsData = await recsRes.json() as { commitments: CommitmentRecommendation[] };
+      setRecommendations(recsData.commitments);
+    } catch (e: any) {
+      console.error("AI prefetch error:", e);
+      setAiError(e.message || "Failed to generate profile");
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
   return {
     payload,
     update,
@@ -37,5 +78,8 @@ export function useOnboardingState() {
     setSummary,
     recommendations,
     setRecommendations,
+    aiLoading,
+    aiError,
+    prefetchAI,
   };
 }

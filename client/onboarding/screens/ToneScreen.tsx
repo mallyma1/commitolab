@@ -28,7 +28,7 @@ const accountabilityOptions = [
 export function ToneScreen({ navigation }: Props) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { payload, update } = useOnboardingContext();
+  const { payload, update, prefetchAI } = useOnboardingContext();
 
   const toggleTone = (tone: string) => {
     const current = payload.tonePreferences;
@@ -133,7 +133,10 @@ export function ToneScreen({ navigation }: Props) {
               styles.continueButton,
               { backgroundColor: canContinue ? theme.primary : theme.border },
             ]}
-            onPress={() => navigation.navigate("Summary")}
+            onPress={() => {
+              prefetchAI(payload);
+              navigation.navigate("Summary");
+            }}
             disabled={!canContinue}
           >
             <ThemedText style={styles.continueButtonText}>Generate My Profile</ThemedText>

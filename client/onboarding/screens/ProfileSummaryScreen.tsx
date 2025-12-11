@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -7,7 +7,6 @@ import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { useOnboardingContext } from "../OnboardingContext";
-import { getApiUrl } from "@/lib/query-client";
 
 type Props = {
   navigation: any;
@@ -16,38 +15,9 @@ type Props = {
 export function ProfileSummaryScreen({ navigation }: Props) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { payload, summary, setSummary } = useOnboardingContext();
-  const [loading, setLoading] = useState(!summary);
-  const [error, setError] = useState<string | null>(null);
+  const { payload, summary, aiLoading, aiError, prefetchAI } = useOnboardingContext();
 
-  useEffect(() => {
-    async function fetchSummary() {
-      if (summary) {
-        setLoading(false);
-        return;
-      }
-      try {
-        setLoading(true);
-        setError(null);
-        const url = new URL("/api/onboarding/summary", getApiUrl());
-        const res = await fetch(url.toString(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("Failed to fetch summary");
-        const json = await res.json();
-        setSummary(json);
-      } catch (e: any) {
-        setError(e.message || "Error");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchSummary();
-  }, [summary, payload, setSummary]);
-
-  if (loading) {
+  if (aiLoading || !summary) {
     return (
       <View
         style={[
@@ -64,7 +34,7 @@ export function ProfileSummaryScreen({ navigation }: Props) {
     );
   }
 
-  if (error || !summary) {
+  if (aiError) {
     return (
       <View
         style={[
@@ -79,11 +49,7 @@ export function ProfileSummaryScreen({ navigation }: Props) {
         </ThemedText>
         <Pressable
           style={[styles.retryButton, { borderColor: theme.border }]}
-          onPress={() => {
-            setSummary(null);
-            setLoading(true);
-            setError(null);
-          }}
+          onPress={() => prefetchAI(payload)}
         >
           <ThemedText>Try again</ThemedText>
         </Pressable>

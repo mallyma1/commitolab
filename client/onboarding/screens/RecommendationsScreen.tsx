@@ -6,7 +6,6 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { useOnboardingContext } from "../OnboardingContext";
-import { getApiUrl } from "@/lib/query-client";
 import type { CommitmentRecommendation, OnboardingPayload, HabitProfileSummary } from "../../../shared/onboardingTypes";
 
 type OnboardingCompleteData = {
@@ -24,43 +23,15 @@ type Props = {
 export function RecommendationsScreen({ navigation, onComplete }: Props) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { payload, summary, recommendations, setRecommendations } = useOnboardingContext();
-  const [loading, setLoading] = useState(recommendations.length === 0);
-  const [error, setError] = useState<string | null>(null);
+  const { payload, summary, recommendations, aiLoading } = useOnboardingContext();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    async function fetchRecs() {
-      if (!summary) return;
-      if (recommendations.length > 0) {
-        setLoading(false);
-        const allSelected = new Set(recommendations.map((_, idx) => idx));
-        setSelectedIds(allSelected);
-        return;
-      }
-      try {
-        setLoading(true);
-        setError(null);
-        const url = new URL("/api/onboarding/recommendations", getApiUrl());
-        const res = await fetch(url.toString(), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ payload, summary }),
-        });
-        if (!res.ok) throw new Error("Failed to fetch recommendations");
-        const json = await res.json();
-        const recs = json.commitments || [];
-        setRecommendations(recs);
-        const allSelected = new Set(recs.map((_: CommitmentRecommendation, idx: number) => idx));
-        setSelectedIds(allSelected);
-      } catch (e: any) {
-        setError(e.message || "Error");
-      } finally {
-        setLoading(false);
-      }
+    if (recommendations.length > 0 && selectedIds.size === 0) {
+      const allSelected = new Set(recommendations.map((_, idx) => idx));
+      setSelectedIds(allSelected);
     }
-    fetchRecs();
-  }, [summary, payload, recommendations.length, setRecommendations]);
+  }, [recommendations, selectedIds.size]);
 
   const toggleSelection = (idx: number) => {
     const newSet = new Set(selectedIds);
@@ -94,7 +65,7 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
     );
   }
 
-  if (loading) {
+  if (aiLoading || recommendations.length === 0) {
     return (
       <View
         style={[
@@ -107,33 +78,6 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
         <ThemedText style={[styles.loadingText, { color: theme.textSecondary }]}>
           Designing realistic streaks for you...
         </ThemedText>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.centered,
-          { backgroundColor: theme.backgroundRoot, paddingTop: insets.top },
-        ]}
-      >
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} />
-        <ThemedText style={[styles.errorText, { color: theme.textSecondary }]}>
-          We could not generate streak suggestions right now.
-        </ThemedText>
-        <Pressable
-          style={[styles.retryButton, { borderColor: theme.border }]}
-          onPress={() => {
-            setRecommendations([]);
-            setLoading(true);
-            setError(null);
-          }}
-        >
-          <ThemedText>Try again</ThemedText>
-        </Pressable>
       </View>
     );
   }
