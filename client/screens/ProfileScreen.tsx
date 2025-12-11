@@ -44,7 +44,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, deleteAccount } = useAuth();
   const { data: analytics } = useAnalytics();
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showChurnModal, setShowChurnModal] = useState(false);
@@ -76,9 +76,13 @@ export default function ProfileScreen() {
     setShowChurnModal(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     setShowChurnModal(false);
-    Alert.alert("Account Deletion", "Please contact support to delete your account.");
+    try {
+      await deleteAccount();
+    } catch (error) {
+      Alert.alert("Error", "Failed to delete account. Please try again.");
+    }
   };
 
   const handleSaveDisplayName = async () => {

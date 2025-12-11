@@ -46,6 +46,7 @@ interface AuthContextType {
   loginWithGoogle: (accessToken: string, onboardingData?: OnboardingData) => Promise<void>;
   loginWithApple: (credential: AppleCredential, onboardingData?: OnboardingData) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -179,6 +180,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteAccount = async () => {
+    if (!user) return;
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""}/api/users/${user.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            "x-session-id": user.id,
+          },
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to delete account");
+      }
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      await AsyncStorage.removeItem(HAS_EVER_LOGGED_IN_KEY);
+      await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
+      setUser(null);
+    } catch (error) {
+      console.error("Delete account error:", error);
+      throw error;
+    }
+  };
+
   const updateUser = async (data: Partial<User>) => {
     if (!user) return;
     try {
@@ -233,6 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithGoogle,
         loginWithApple,
         logout,
+        deleteAccount,
         updateUser,
         refreshUser,
       }}

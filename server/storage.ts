@@ -27,6 +27,7 @@ export interface IStorage {
   createUser(insertUser: InsertUser): Promise<User>;
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
   updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined>;
+  deleteUser(id: string): Promise<void>;
 
   getCommitments(userId: string): Promise<Commitment[]>;
   getCommitment(id: string): Promise<Commitment | undefined>;
@@ -88,6 +89,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(pushTokens).where(eq(pushTokens.userId, id));
+    await db.delete(dopamineChecklistEntries).where(eq(dopamineChecklistEntries.userId, id));
+    await db.delete(checkIns).where(eq(checkIns.userId, id));
+    await db.delete(commitments).where(eq(commitments.userId, id));
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async updateUserOnboarding(

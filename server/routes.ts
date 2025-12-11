@@ -489,6 +489,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/users/:id", requireAuth, async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const sessionUserId = req.headers["x-session-id"];
+      
+      if (userId !== sessionUserId) {
+        return res.status(403).json({ error: "Cannot delete another user's account" });
+      }
+      
+      await storage.deleteUser(userId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Delete user error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   app.put("/api/users/:id/onboarding", async (req, res) => {
     try {
       const { identityArchetype, primaryGoalCategory, primaryGoalReason, preferredCadence } = req.body;
