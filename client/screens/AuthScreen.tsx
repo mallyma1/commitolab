@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 import { ONBOARDING_DATA_KEY, type OnboardingData } from "@/types/onboarding";
 
-type AuthMode = "select" | "email" | "phone";
+type AuthMode = "select" | "email";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -145,13 +145,6 @@ export default function AuthScreen() {
         "mail",
         EarthyColors.terraBrown,
         () => setAuthMode("email")
-      )}
-
-      {renderSSOButton(
-        "Continue with Phone",
-        "smartphone",
-        EarthyColors.forestGreen,
-        () => setAuthMode("phone")
       )}
     </View>
   );
@@ -342,7 +335,6 @@ export default function AuthScreen() {
 
         {authMode === "select" && renderSelectMode()}
         {authMode === "email" && renderEmailMode()}
-        {authMode === "phone" && renderPhoneMode()}
 
         {authMode === "select" ? (
           <View style={styles.features}>

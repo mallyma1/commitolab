@@ -11,6 +11,7 @@ import { UpgradeModal } from "./UpgradeModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useSubscription, type ProFeature } from "@/hooks/useSubscription";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
+import { FREE_MODE } from "../../shared/config";
 
 interface ProGateProps {
   feature: ProFeature;
@@ -64,6 +65,10 @@ export function ProGate({ feature, featureName, children }: ProGateProps) {
     headerHeight = useHeaderHeight();
   } catch {
     headerHeight = 0;
+  }
+
+  if (FREE_MODE) {
+    return <>{children}</>;
   }
 
   if (isLoading) {

@@ -9,7 +9,7 @@ import CommitmentWizardScreen from "@/screens/CommitmentWizardScreen";
 import CheckInScreen from "@/screens/CheckInScreen";
 import CommitmentDetailScreen from "@/screens/CommitmentDetailScreen";
 import StoicRoomScreen from "@/screens/StoicRoomScreen";
-import { OnboardingScreen } from "@/screens/OnboardingScreen";
+import { OnboardingNavigator, OnboardingCompleteData } from "@/onboarding/OnboardingNavigator";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
@@ -61,9 +61,16 @@ export default function RootStackNavigator() {
     }
   };
 
-  const handleOnboardingComplete = useCallback(async (data: OnboardingData) => {
+  const handleOnboardingComplete = useCallback(async (data: OnboardingCompleteData) => {
     try {
-      await AsyncStorage.setItem(ONBOARDING_DATA_KEY, JSON.stringify(data));
+      const onboardingData: OnboardingData = {
+        completed: true,
+        payload: data.payload,
+        summary: data.summary ?? undefined,
+        recommendations: data.recommendations,
+        selectedRecommendations: data.selectedRecommendations,
+      };
+      await AsyncStorage.setItem(ONBOARDING_DATA_KEY, JSON.stringify(onboardingData));
       setShouldShowOnboarding(false);
     } catch (error) {
       console.error("Error saving onboarding data:", error);
@@ -85,7 +92,7 @@ export default function RootStackNavigator() {
           name="Onboarding"
           options={{ headerShown: false }}
         >
-          {() => <OnboardingScreen onComplete={handleOnboardingComplete} />}
+          {() => <OnboardingNavigator onComplete={handleOnboardingComplete} />}
         </Stack.Screen>
       ) : !isAuthenticated ? (
         <Stack.Screen

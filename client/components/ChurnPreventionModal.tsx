@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Modal, Pressable, ScrollView } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, Modal, Pressable, ScrollView, TextInput } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutLeft } from "react-native-reanimated";
 import { ThemedText } from "./ThemedText";
@@ -7,6 +7,7 @@ import { Button } from "./Button";
 import { Card } from "./Card";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
 interface ChurnPreventionModalProps {
   visible: boolean;
@@ -61,10 +62,42 @@ export function ChurnPreventionModal({
   const { theme } = useTheme();
   const [step, setStep] = useState(1);
   const [selectedConcern, setSelectedConcern] = useState<string | null>(null);
+  const [exitSurveyQuestions, setExitSurveyQuestions] = useState<string[]>([]);
+  const [surveyAnswers, setSurveyAnswers] = useState<string[]>([]);
+  const [surveyFailed, setSurveyFailed] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      fetchExitSurvey();
+    }
+  }, [visible]);
+
+  const fetchExitSurvey = async () => {
+    try {
+      const url = new URL("/api/account/exit-survey", getApiUrl());
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error("Failed to fetch survey");
+      const data = await res.json();
+      setExitSurveyQuestions(data.questions || []);
+      setSurveyAnswers(new Array(data.questions?.length || 0).fill(""));
+      setSurveyFailed(false);
+    } catch {
+      setSurveyFailed(true);
+      setExitSurveyQuestions([]);
+      setSurveyAnswers([]);
+    }
+  };
+
+  const updateSurveyAnswer = (index: number, value: string) => {
+    const newAnswers = [...surveyAnswers];
+    newAnswers[index] = value;
+    setSurveyAnswers(newAnswers);
+  };
 
   const handleClose = () => {
     setStep(1);
     setSelectedConcern(null);
+    setSurveyAnswers([]);
     onClose();
   };
 
@@ -76,9 +109,24 @@ export function ChurnPreventionModal({
     setStep(3);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
+    if (!surveyFailed && exitSurveyQuestions.length > 0) {
+      try {
+        const url = new URL("/api/account/exit-survey", getApiUrl());
+        await fetch(url.toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            concern: selectedConcern,
+            answers: surveyAnswers,
+          }),
+        });
+      } catch {
+      }
+    }
     setStep(1);
     setSelectedConcern(null);
+    setSurveyAnswers([]);
     onConfirmDelete();
   };
 
@@ -216,6 +264,34 @@ export function ChurnPreventionModal({
           This action cannot be undone. All your data, streaks, and progress will be permanently deleted.
         </ThemedText>
       </View>
+
+      {!surveyFailed && exitSurveyQuestions.length > 0 ? (
+        <ScrollView style={styles.surveyScroll} showsVerticalScrollIndicator={false}>
+          <ThemedText style={[styles.surveyLabel, { color: theme.textSecondary }]}>
+            Before you go, help us improve (optional):
+          </ThemedText>
+          {exitSurveyQuestions.map((question, idx) => (
+            <View key={idx} style={styles.surveyQuestion}>
+              <ThemedText style={styles.surveyQuestionText}>{question}</ThemedText>
+              <TextInput
+                style={[
+                  styles.surveyInput,
+                  {
+                    backgroundColor: theme.backgroundDefault,
+                    borderColor: theme.border,
+                    color: theme.text,
+                  },
+                ]}
+                value={surveyAnswers[idx] || ""}
+                onChangeText={(text) => updateSurveyAnswer(idx, text)}
+                placeholder="Your thoughts..."
+                placeholderTextColor={theme.textSecondary}
+                multiline
+              />
+            </View>
+          ))}
+        </ScrollView>
+      ) : null}
 
       <Card style={{ ...styles.warningCard, borderColor: theme.error }}>
         <ThemedText style={[styles.warningTitle, { color: theme.error }]}>
@@ -475,5 +551,29 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  surveyScroll: {
+    maxHeight: 200,
+    marginBottom: Spacing.md,
+  },
+  surveyLabel: {
+    fontSize: 13,
+    marginBottom: Spacing.md,
+  },
+  surveyQuestion: {
+    marginBottom: Spacing.md,
+  },
+  surveyQuestionText: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginBottom: Spacing.xs,
+  },
+  surveyInput: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    fontSize: 14,
+    minHeight: 60,
+    textAlignVertical: "top",
   },
 });

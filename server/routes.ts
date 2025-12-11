@@ -8,6 +8,12 @@ import { insertCommitmentSchema, insertCheckInSchema } from "@shared/schema";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
 import { getTwilioClient, getTwilioFromPhoneNumber } from "./twilioClient";
+import { openai } from "./openaiClient";
+import type {
+  OnboardingPayload,
+  HabitProfileSummary,
+  CommitmentRecommendation,
+} from "../shared/onboardingTypes";
 
 function httpsGet(url: string, headers?: Record<string, string>): Promise<{ ok: boolean; status: number; json: () => Promise<any> }> {
   return new Promise((resolve, reject) => {
@@ -1011,6 +1017,170 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching subscription:", error);
       return res.status(500).json({ error: "Failed to fetch subscription" });
     }
+  });
+
+  function buildProfilePrompt(payload: OnboardingPayload): string {
+    return `
+You are helping design a non clinical discipline coaching profile.
+
+Here is the user JSON:
+${JSON.stringify(payload, null, 2)}
+
+Create a short label for this person and three bullet lists:
+- strengths
+- risk_zones
+- best_practices
+
+Rules:
+- No mental health labels, no diagnoses, no therapy language.
+- Focus on habits, discipline, environment and patterns.
+- Each bullet must be under 20 words.
+- No promises about future outcomes.
+- Keep language grounded and honest.
+
+Respond with valid JSON in this exact format:
+{
+  "profile_name": "string",
+  "strengths": ["string", "string", "string"],
+  "risk_zones": ["string", "string", "string"],
+  "best_practices": ["string", "string", "string"]
+}
+`;
+  }
+
+  app.post("/api/onboarding/summary", async (req, res) => {
+    try {
+      if (!openai) {
+        return res.status(503).json({ error: "OpenAI not configured" });
+      }
+
+      const payload = req.body as OnboardingPayload;
+      const prompt = buildProfilePrompt(payload);
+
+      const completion = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL_PROFILE || "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You generate short, non clinical behaviour profiles for a habit app. Always respond with valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 450,
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        return res.status(500).json({ error: "No content from OpenAI" });
+      }
+
+      const json = JSON.parse(content) as HabitProfileSummary;
+      return res.json(json);
+    } catch (err) {
+      console.error("Error in /api/onboarding/summary", err);
+      return res.status(500).json({ error: "Failed to generate summary" });
+    }
+  });
+
+  function buildRecommendationsPrompt(
+    payload: OnboardingPayload,
+    summary: HabitProfileSummary
+  ): string {
+    return `
+You are helping design realistic daily and weekly commitments for a discipline app.
+
+User JSON:
+${JSON.stringify(payload, null, 2)}
+
+Profile summary:
+${JSON.stringify(summary, null, 2)}
+
+Create up to 5 commitments. For each, output:
+- title
+- short_description
+- cadence: one of "daily", "weekly"
+- proof_mode: "none", "tick_only", "photo_optional" or "photo_required"
+- reason: under 20 words, grounded and honest.
+
+Rules:
+- Do not make any medical or mental health claims.
+- Focus on behaviour, environment and realistic micro actions.
+- Keep workloads small if they are overwhelmed or burnt out.
+
+Respond with valid JSON in this exact format:
+{
+  "commitments": [
+    {
+      "title": "string",
+      "short_description": "string",
+      "cadence": "daily",
+      "proof_mode": "tick_only",
+      "reason": "string"
+    }
+  ]
+}
+`;
+  }
+
+  app.post("/api/onboarding/recommendations", async (req, res) => {
+    try {
+      if (!openai) {
+        return res.status(503).json({ error: "OpenAI not configured" });
+      }
+
+      const {
+        payload,
+        summary,
+      }: { payload: OnboardingPayload; summary: HabitProfileSummary } = req.body;
+
+      const prompt = buildRecommendationsPrompt(payload, summary);
+
+      const completion = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL_RECS || "gpt-4.1-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You propose realistic, non clinical habit commitments for a discipline app. Always respond with valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 600,
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        return res.status(500).json({ error: "No content from OpenAI" });
+      }
+
+      const json = JSON.parse(content) as {
+        commitments: CommitmentRecommendation[];
+      };
+
+      return res.json(json);
+    } catch (err) {
+      console.error("Error in /api/onboarding/recommendations", err);
+      return res.status(500).json({ error: "Failed to generate recommendations" });
+    }
+  });
+
+  app.get("/api/account/exit-survey", (_req, res) => {
+    res.json({
+      questions: [
+        "What made you decide to step away from StreakProof?",
+        "Was there anything that did not work for you in the app?",
+        "If you come back in six months, what would you hope is different?"
+      ],
+    });
   });
 
   const httpServer = createServer(app);

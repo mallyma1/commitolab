@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/query-client";
+import { FREE_MODE } from "../../shared/config";
 
 export interface SubscriptionStatus {
   isPro: boolean;
@@ -59,8 +60,8 @@ export function useSubscription() {
   });
 
   return {
-    isPro: data?.isPro ?? false,
-    plan: data?.plan ?? "free",
+    isPro: FREE_MODE ? true : (data?.isPro ?? false),
+    plan: FREE_MODE ? "pro" : (data?.plan ?? "free"),
     subscription: data?.subscription ?? null,
     isLoading,
     error,
