@@ -1,0 +1,633 @@
+“Please implement everything in this spec exactly. Do not redesign anything, just follow it.”
+
+1. Spec for Replit: free access, no phone SSO, new onboarding, OpenAI backend, delete account fix
+1.1 Global changes
+A. Remove all paywalls and Pro gating
+
+Implementation intent:
+
+For now everyone is treated as on a free unlimited plan.
+
+Dopamine Lab, Stoic Room, self regulation tests etc should be accessible with no upgrade prompts.
+
+Concretely:
+
+Introduce a simple feature flag in a shared config file.
+
+Example in shared/config.ts:
+
+export const FREE_MODE = true;
+
+
+Anywhere in the app where features are gated on user.plan === 'pro' or similar, replace logic with:
+
+import { FREE_MODE } from "../shared/config";
+
+const hasFeatureAccess = FREE_MODE ? true : user.plan === "pro";
+
+
+Remove or hide all upgrade buttons and paywall modals for now:
+
+Hide or disable any “Upgrade to Pro” buttons.
+
+Remove any screens that only show pricing.
+
+If there is a separate “ProFeatureGate” component, make it always render children when FREE_MODE is true.
+
+Example:
+
+export function ProGate({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+
+So Dopamine Lab, Stoic Room and self regulation tests are fully usable.
+
+B. Disable phone SSO completely
+
+We want to remove phone sign in for now.
+
+On the frontend auth screen:
+
+Remove or comment out any “Continue with phone” button.
+
+Remove any forms that ask for a phone number for login.
+
+Example:
+
+// Remove or comment out this block
+// <AuthButton
+//   label="Continue with phone"
+//   icon="phone"
+//   onPress={onPhonePress}
+// />
+
+
+In the backend:
+
+If there are routes like /api/auth/phone/send-code and /api/auth/phone/verify, you can keep them but they will not be used.
+
+No frontend should call those endpoints now.
+
+This removes Twilio from the login flow and simplifies the auth surface.
+
+1.2 OpenAI backend integration
+
+We only want the backend to talk to OpenAI. No direct calls from the app.
+
+Assume Express at server/index.ts. The following is additive.
+
+A. Environment variables
+
+Add to environment in Replit:
+
+OPENAI_API_KEY=<your key>
+
+OPENAI_MODEL_PROFILE=gpt-4.1-mini (or similar)
+
+OPENAI_MODEL_RECS=gpt-4.1-mini
+
+You will set these in the Replit Secrets UI.
+
+B. Install OpenAI SDK
+
+Package is already in package.json if not, you can add:
+
+npm install openai
+
+C. Add a small OpenAI client helper
+
+Create server/openaiClient.ts:
+
+import OpenAI from "openai";
+
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error("Missing OPENAI_API_KEY");
+}
+
+export const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+D. Add types for onboarding payload
+
+Create shared/onboardingTypes.ts:
+
+export type OnboardingPayload = {
+  roles: string[];
+  pressures: string[];
+  focusDomains: string[];
+  strugglePatterns: string[];
+  rewardStyle: string[];
+  changeStyle: string;
+  currentState: string;
+  tonePreferences: string[];
+  accountabilityLevel: string;
+};
+
+export type HabitProfileSummary = {
+  profile_name: string;
+  strengths: string[];
+  risk_zones: string[];
+  best_practices: string[];
+};
+
+export type CommitmentRecommendation = {
+  title: string;
+  short_description: string;
+  cadence: "daily" | "weekly" | "custom";
+  proof_mode: "none" | "tick_only" | "photo_optional" | "photo_required";
+  reason: string;
+};
+
+E. Express routes for profile summary and recommendations
+
+In server/index.ts, after your existing app.use calls, add:
+
+import express from "express";
+import { openai } from "./openaiClient";
+import type {
+  OnboardingPayload,
+  HabitProfileSummary,
+  CommitmentRecommendation,
+} from "../shared/onboardingTypes";
+
+const app = express();
+
+app.use(express.json());
+
+function buildProfilePrompt(payload: OnboardingPayload): string {
+  return `
+You are helping design a non clinical discipline coaching profile.
+
+Here is the user JSON:
+${JSON.stringify(payload, null, 2)}
+
+Create a short label for this person and three bullet lists:
+- strengths
+- risk_zones
+- best_practices
+
+Rules:
+- No mental health labels, no diagnoses, no therapy language.
+- Focus on habits, discipline, environment and patterns.
+- Each bullet must be under 20 words.
+- No promises about future outcomes.
+- Keep language grounded and honest.
+`;
+}
+
+app.post("/api/onboarding/summary", async (req, res) => {
+  try {
+    const payload = req.body as OnboardingPayload;
+
+    const prompt = buildProfilePrompt(payload);
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL_PROFILE || "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You generate short, non clinical behaviour profiles for a habit app.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 450,
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      return res.status(500).json({ error: "No content from OpenAI" });
+    }
+
+    const json = JSON.parse(content) as HabitProfileSummary;
+    return res.json(json);
+  } catch (err) {
+    console.error("Error in /api/onboarding/summary", err);
+    return res.status(500).json({ error: "Failed to generate summary" });
+  }
+});
+
+function buildRecommendationsPrompt(
+  payload: OnboardingPayload,
+  summary: HabitProfileSummary
+): string {
+  return `
+You are helping design realistic daily and weekly commitments for a discipline app.
+
+User JSON:
+${JSON.stringify(payload, null, 2)}
+
+Profile summary:
+${JSON.stringify(summary, null, 2)}
+
+Create up to 5 commitments. For each, output:
+- title
+- short_description
+- cadence: one of "daily", "weekly"
+- proof_mode: "none", "tick_only", "photo_optional" or "photo_required"
+- reason: under 20 words, grounded and honest.
+
+Rules:
+- Do not make any medical or mental health claims.
+- Focus on behaviour, environment and realistic micro actions.
+- Keep workloads small if they are overwhelmed or burnt out.
+`;
+}
+
+app.post("/api/onboarding/recommendations", async (req, res) => {
+  try {
+    const {
+      payload,
+      summary,
+    }: { payload: OnboardingPayload; summary: HabitProfileSummary } = req.body;
+
+    const prompt = buildRecommendationsPrompt(payload, summary);
+
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL_RECS || "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You propose realistic, non clinical habit commitments for a discipline app.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 600,
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      return res.status(500).json({ error: "No content from OpenAI" });
+    }
+
+    const json = JSON.parse(content) as {
+      commitments: CommitmentRecommendation[];
+    };
+
+    return res.json(json);
+  } catch (err) {
+    console.error("Error in /api/onboarding/recommendations", err);
+    return res.status(500).json({ error: "Failed to generate recommendations" });
+  }
+});
+
+// keep existing app.listen and other routes
+
+
+Frontend will call these two endpoints during onboarding.
+
+1.3 Onboarding flow implementation (frontend)
+
+Below is a concrete implementation outline. You can adjust file paths to match the existing structure, but please keep the logic and state as specified.
+
+Create a new onboarding navigator and screens.
+
+A. Onboarding state hook
+
+Create client/onboarding/useOnboardingState.ts:
+
+import { useState } from "react";
+import type {
+  OnboardingPayload,
+  HabitProfileSummary,
+  CommitmentRecommendation,
+} from "../../shared/onboardingTypes";
+
+export function useOnboardingState() {
+  const [payload, setPayload] = useState<OnboardingPayload>({
+    roles: [],
+    pressures: [],
+    focusDomains: [],
+    strugglePatterns: [],
+    rewardStyle: [],
+    changeStyle: "",
+    currentState: "",
+    tonePreferences: [],
+    accountabilityLevel: "",
+  });
+
+  const [summary, setSummary] = useState<HabitProfileSummary | null>(null);
+  const [recommendations, setRecommendations] = useState<
+    CommitmentRecommendation[]
+  >([]);
+
+  function update<K extends keyof OnboardingPayload>(
+    key: K,
+    value: OnboardingPayload[K]
+  ) {
+    setPayload((prev) => ({ ...prev, [key]: value }));
+  }
+
+  return {
+    payload,
+    update,
+    summary,
+    setSummary,
+    recommendations,
+    setRecommendations,
+  };
+}
+
+B. Onboarding navigator
+
+Create client/onboarding/OnboardingNavigator.tsx:
+
+import React from "react";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useOnboardingState } from "./useOnboardingState";
+import { OnboardingIntroScreen } from "./screens/OnboardingIntroScreen";
+import { RolesScreen } from "./screens/RolesScreen";
+import { FocusDomainsScreen } from "./screens/FocusDomainsScreen";
+import { StrugglePatternsScreen } from "./screens/StrugglePatternsScreen";
+import { MotivationScreen } from "./screens/MotivationScreen";
+import { ChangeStyleScreen } from "./screens/ChangeStyleScreen";
+import { EmotionalStateScreen } from "./screens/EmotionalStateScreen";
+import { ToneScreen } from "./screens/ToneScreen";
+import { ProfileSummaryScreen } from "./screens/ProfileSummaryScreen";
+import { RecommendationsScreen } from "./screens/RecommendationsScreen";
+
+const Stack = createNativeStackNavigator();
+
+export function OnboardingNavigator() {
+  const state = useOnboardingState();
+
+  return (
+    <OnboardingContext.Provider value={state}>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Intro" component={OnboardingIntroScreen} />
+        <Stack.Screen name="Roles" component={RolesScreen} />
+        <Stack.Screen name="FocusDomains" component={FocusDomainsScreen} />
+        <Stack.Screen name="Struggles" component={StrugglePatternsScreen} />
+        <Stack.Screen name="Motivation" component={MotivationScreen} />
+        <Stack.Screen name="ChangeStyle" component={ChangeStyleScreen} />
+        <Stack.Screen name="State" component={EmotionalStateScreen} />
+        <Stack.Screen name="Tone" component={ToneScreen} />
+        <Stack.Screen name="Summary" component={ProfileSummaryScreen} />
+        <Stack.Screen name="Recommendations" component={RecommendationsScreen} />
+      </Stack.Navigator>
+    </OnboardingContext.Provider>
+  );
+}
+
+
+Create a simple context in client/onboarding/OnboardingContext.tsx:
+
+import React, { createContext, useContext } from "react";
+import type { OnboardingPayload, HabitProfileSummary, CommitmentRecommendation } from "../../shared/onboardingTypes";
+import { useOnboardingState } from "./useOnboardingState";
+
+type OnboardingContextValue = ReturnType<typeof useOnboardingState>;
+
+export const OnboardingContext = createContext<OnboardingContextValue | null>(
+  null
+);
+
+export function useOnboardingContext() {
+  const ctx = useContext(OnboardingContext);
+  if (!ctx) throw new Error("useOnboardingContext must be used inside provider");
+  return ctx;
+}
+
+export function OnboardingProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const value = useOnboardingState();
+  return (
+    <OnboardingContext.Provider value={value}>
+      {children}
+    </OnboardingContext.Provider>
+  );
+}
+
+
+Then wrap the stack with OnboardingProvider instead of using the hook directly.
+
+Each screen component (Intro, Roles, FocusDomains, etc) can:
+
+Read and update state from useOnboardingContext.
+
+Use simple chip components and buttons, following the design guidelines from design_guidelines.md.
+
+For brevity I am not pasting every screen component, but the content and questions should follow the detailed flow we already outlined in the previous message:
+
+O1 Intro and promise
+
+O2 Life roles and context
+
+O3 Focus domains
+
+O4 Struggle patterns
+
+O5 Motivation and reward style
+
+O6 Effort and change style
+
+O7 Emotional temperature check
+
+O8 Behavioural levers and tone
+
+C. Calling OpenAI routes on Summary and Recommendations screens
+
+In ProfileSummaryScreen:
+
+import { useOnboardingContext } from "../OnboardingContext";
+import { useEffect, useState } from "react";
+import { View, Text, ActivityIndicator, Button } from "react-native";
+
+export function ProfileSummaryScreen({ navigation }: any) {
+  const { payload, summary, setSummary } = useOnboardingContext();
+  const [loading, setLoading] = useState(!summary);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchSummary() {
+      if (summary) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/onboarding/summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Failed to fetch summary");
+        const json = await res.json();
+        setSummary(json);
+      } catch (e: any) {
+        setError(e.message || "Error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSummary();
+  }, [summary, payload, setSummary]);
+
+  if (loading) {
+    return (
+      <View>
+        <ActivityIndicator />
+        <Text>Analysing your answers...</Text>
+      </View>
+    );
+  }
+
+  if (error || !summary) {
+    return (
+      <View>
+        <Text>We could not generate your profile right now.</Text>
+        <Button title="Try again" onPress={() => setSummary(null)} />
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <Text>{summary.profile_name}</Text>
+      {/* render strengths, risk_zones, best_practices */}
+      <Button
+        title="Design my streaks"
+        onPress={() => navigation.navigate("Recommendations")}
+      />
+    </View>
+  );
+}
+
+
+In RecommendationsScreen:
+
+import { useOnboardingContext } from "../OnboardingContext";
+import { useEffect, useState } from "react";
+import { View, Text, ActivityIndicator, Button, ScrollView } from "react-native";
+
+export function RecommendationsScreen({ navigation }: any) {
+  const {
+    payload,
+    summary,
+    recommendations,
+    setRecommendations,
+  } = useOnboardingContext();
+  const [loading, setLoading] = useState(recommendations.length === 0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchRecs() {
+      if (!summary) return;
+      if (recommendations.length > 0) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch("/api/onboarding/recommendations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payload, summary }),
+        });
+        if (!res.ok) throw new Error("Failed to fetch recommendations");
+        const json = await res.json();
+        setRecommendations(json.commitments || []);
+      } catch (e: any) {
+        setError(e.message || "Error");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRecs();
+  }, [summary, payload, recommendations.length, setRecommendations]);
+
+  if (!summary) {
+    return (
+      <View>
+        <Text>Missing profile summary</Text>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View>
+        <ActivityIndicator />
+        <Text>Designing realistic streaks for you...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View>
+        <Text>We could not generate streak suggestions right now.</Text>
+        <Button title="Try again" onPress={() => setRecommendations([])} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView>
+      {recommendations.map((rec, idx) => (
+        <View key={idx}>
+          <Text>{rec.title}</Text>
+          <Text>{rec.short_description}</Text>
+          <Text>{rec.cadence}</Text>
+          <Text>{rec.reason}</Text>
+        </View>
+      ))}
+      <Button
+        title="Confirm and start"
+        onPress={() => {
+          // here call backend to create commitments from recommendations, then navigate into main app
+          navigation.replace("MainApp");
+        }}
+      />
+    </ScrollView>
+  );
+}
+
+1.4 Delete account questionnaire fix
+
+You mentioned the delete account leaving questionnaire is not loading well.
+
+Implementation intent:
+
+The delete account screen should never block deletion because of a broken questionnaire.
+
+It should show a simple fallback if the survey fails.
+
+Backend route example in server/index.ts:
+
+app.get("/api/account/exit-survey", (_req, res) => {
+  res.json({
+    questions: [
+      "What made you decide to step away from StreakProof?",
+      "Was there anything that did not work for you in the app?",
+      "If you come back in six months, what would you hope is different?"
+    ],
+  });
+});
+
+
+Frontend DeleteAccountScreen logic should:
+
+Show loading state.
+
+Try to fetch /api/account/exit-survey.
+
+If it fails, fall back to a simple single free text field like “Any feedback before you go” and still allow deletion.
+
+Key rule: the delete button must always work, even if the survey call fails.
