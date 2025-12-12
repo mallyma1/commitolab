@@ -12,31 +12,72 @@ type Props = {
 };
 
 const struggleOptions = [
-  "I start strong, then fade after a week",
-  "I skip one day and never come back",
-  "I set goals that are way too ambitious",
-  "I forget to do things unless I am reminded",
-  "I put things off until I feel ready",
-  "I lose motivation when no one is watching",
-  "I get distracted by new ideas",
-  "I burn out, then stop everything",
-  "I wait for the perfect time that never comes",
+  {
+    id: "inconsistency",
+    label: "Inconsistency",
+    description: "I start strong, then fade after a week",
+  },
+  {
+    id: "restart",
+    label: "Hard to Restart",
+    description: "I skip one day and never come back",
+  },
+  {
+    id: "overambition",
+    label: "Overambition",
+    description: "I set goals that are way too ambitious",
+  },
+  {
+    id: "forgetfulness",
+    label: "Forgetfulness",
+    description: "I forget to do things unless I am reminded",
+  },
+  {
+    id: "procrastination",
+    label: "Procrastination",
+    description: "I put things off until I feel ready",
+  },
+  {
+    id: "accountability",
+    label: "Lack of Accountability",
+    description: "I lose motivation when no one is watching",
+  },
+  {
+    id: "distraction",
+    label: "Distraction",
+    description: "I get distracted by new ideas",
+  },
+  {
+    id: "burnout",
+    label: "Burnout",
+    description: "I burn out, then stop everything",
+  },
+  {
+    id: "perfectionism",
+    label: "Perfectionism",
+    description: "I wait for the perfect time that never comes",
+  },
 ];
+
+const MAX_SELECTIONS = 3;
 
 export function StrugglePatternsScreen({ navigation }: Props) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { payload, update } = useOnboardingContext();
 
-  const togglePattern = (pattern: string) => {
+  const togglePattern = (id: string) => {
     const current = payload.strugglePatterns ?? [];
-    if (current.includes(pattern)) {
+    if (current.includes(id)) {
       update(
         "strugglePatterns",
-        current.filter((p: string) => p !== pattern)
+        current.filter((p: string) => p !== id)
       );
     } else {
-      update("strugglePatterns", [...current, pattern]);
+      // Enforce max 3 selections
+      if (current.length < MAX_SELECTIONS) {
+        update("strugglePatterns", [...current, id]);
+      }
     }
   };
 
@@ -60,20 +101,32 @@ export function StrugglePatternsScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
-          What trips you up the most?
+          What trips you up?
         </ThemedText>
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-          Be honest. This helps us anticipate where you might slip and design
-          around it.
+          Pick up to 3 patterns that sound like you.
         </ThemedText>
 
+        {(payload.strugglePatterns?.length ?? 0) > 0 && (
+          <ThemedText
+            style={[
+              styles.selectionCounter,
+              { color: theme.primary, marginBottom: Spacing.md },
+            ]}
+          >
+            {payload.strugglePatterns?.length} of {MAX_SELECTIONS} selected
+          </ThemedText>
+        )}
+
         <View style={styles.optionList}>
-          {struggleOptions.map((pattern) => {
-            const selected = (payload.strugglePatterns ?? []).includes(pattern);
+          {struggleOptions.map((struggle) => {
+            const selected = (payload.strugglePatterns ?? []).includes(
+              struggle.id
+            );
             return (
               <Pressable
-                key={pattern}
-                onPress={() => togglePattern(pattern)}
+                key={struggle.id}
+                onPress={() => togglePattern(struggle.id)}
                 style={[
                   styles.optionCard,
                   {
@@ -97,7 +150,21 @@ export function StrugglePatternsScreen({ navigation }: Props) {
                     <Feather name="check" size={14} color="#fff" />
                   ) : null}
                 </View>
-                <ThemedText style={styles.optionText}>{pattern}</ThemedText>
+                <View style={styles.optionContent}>
+                  <ThemedText style={styles.optionLabel}>
+                    {struggle.label}
+                  </ThemedText>
+                  {selected && (
+                    <ThemedText
+                      style={[
+                        styles.optionDescription,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {struggle.description}
+                    </ThemedText>
+                  )}
+                </View>
               </Pressable>
             );
           })}
@@ -142,12 +209,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: Spacing.lg,
   },
+  selectionCounter: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
   optionList: {
     gap: Spacing.sm,
   },
   optionCard: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
@@ -160,10 +231,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 2,
   },
-  optionText: {
+  optionContent: {
     flex: 1,
+  },
+  optionLabel: {
     fontSize: 14,
+    fontWeight: "500",
+  },
+  optionDescription: {
+    fontSize: 12,
+    marginTop: 4,
   },
   navButtons: {
     flexDirection: "row",

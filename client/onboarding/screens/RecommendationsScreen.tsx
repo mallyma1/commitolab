@@ -184,14 +184,26 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
             <ThemedText
               style={[styles.noticeText, { color: theme.textSecondary }]}
             >
-              AI did not finish yet. You can continue or retry while keeping
-              these.
+              {aiError === "Request timed out" || aiTimedOut
+                ? "This took longer than expected. You can continue with these picks or try again."
+                : "Could not enhance these picks. You can continue or retry."}
             </ThemedText>
             <Pressable
-              style={[styles.retryButton, { borderColor: theme.border }]}
-              onPress={() => prefetchAI(payload)}
+              style={[
+                styles.retryButton,
+                {
+                  borderColor: theme.border,
+                  opacity: aiLoading ? 0.5 : 1,
+                },
+              ]}
+              onPress={() => !aiLoading && prefetchAI(payload)}
+              disabled={aiLoading}
             >
-              <ThemedText>Retry AI now</ThemedText>
+              {aiLoading ? (
+                <ActivityIndicator size="small" color={theme.text} />
+              ) : (
+                <ThemedText>Retry AI now</ThemedText>
+              )}
             </Pressable>
           </View>
         )}

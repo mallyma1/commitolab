@@ -12,14 +12,18 @@ type Props = {
 };
 
 const roleOptions = [
-  { id: "parent", label: "Parent" },
-  { id: "founder", label: "Founder / entrepreneur" },
-  { id: "employee", label: "Employee" },
-  { id: "student", label: "Student" },
-  { id: "carer", label: "Carer" },
-  { id: "freelancer", label: "Freelancer / self-employed" },
-  { id: "retired", label: "Retired" },
-  { id: "looking_for_work", label: "Looking for work" },
+  { id: "athlete", label: "Athlete", icon: "zap" },
+  { id: "student", label: "Student", icon: "book" },
+  { id: "founder", label: "Founder", icon: "trending-up" },
+  { id: "employee", label: "Employee", icon: "briefcase" },
+  { id: "parent", label: "Parent", icon: "heart" },
+  { id: "carer", label: "Carer", icon: "shield" },
+  { id: "freelancer", label: "Freelancer", icon: "compass" },
+  { id: "creative", label: "Creative", icon: "edit-3" },
+  { id: "manager", label: "Manager", icon: "users" },
+  { id: "retired", label: "Retired", icon: "home" },
+  { id: "looking_for_work", label: "Job Seeker", icon: "search" },
+  { id: "wellness", label: "Wellness Focused", icon: "sun" },
 ];
 
 const pressureOptions = [
@@ -106,6 +110,13 @@ export function RolesScreen({ navigation }: Props) {
                   },
                 ]}
               >
+                {role.icon && (
+                  <Feather
+                    name={role.icon as any}
+                    size={14}
+                    color={selected ? theme.primary : theme.textSecondary}
+                  />
+                )}
                 <ThemedText
                   style={[
                     styles.chipText,

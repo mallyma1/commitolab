@@ -5,15 +5,28 @@
  * All endpoints return the standard CommitoAiResponseContract.
  */
 
-const baseUrl = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}`
-  : process.env.NODE_ENV === "development"
-    ? "http://localhost:5000"
-    : (() => {
-        throw new Error(
-          "EXPO_PUBLIC_DOMAIN must be set for production/preview builds"
-        );
-      })();
+const baseUrl = (() => {
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+
+  let resolvedUrl: string;
+
+  if (apiUrl) {
+    resolvedUrl = apiUrl;
+  } else if (domain) {
+    resolvedUrl = `https://${domain}`;
+  } else {
+    resolvedUrl = "https://api.committoo.space";
+    if (__DEV__) {
+      console.warn(
+        "[AI SDK] No API URL configured, using production: https://api.committoo.space"
+      );
+    }
+  }
+
+  console.log("[AI SDK] Base URL:", resolvedUrl);
+  return resolvedUrl;
+})();
 
 // Types matching backend contract
 export type CommitoAiAction = {

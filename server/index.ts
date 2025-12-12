@@ -110,23 +110,41 @@ declare module "http" {
 
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
+    const origin = req.header("origin");
+    const isDev = process.env.NODE_ENV === "development";
+
+    // In development, allow all origins (for Expo Go, tunneling, etc.)
+    if (isDev) {
+      res.header("Access-Control-Allow-Origin", origin || "*");
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS",
+      );
+      res.header("Access-Control-Allow-Headers", "Content-Type, x-session-id");
+      res.header("Access-Control-Allow-Credentials", "true");
+
+      if (req.method === "OPTIONS") {
+        return res.sendStatus(200);
+      }
+      return next();
+    }
+
+    // Production: strict allowlist
     const origins = new Set<string>();
 
-    // Add localhost for local development
-    origins.add("http://localhost:8081");
-    origins.add("http://localhost:19006");
+    // Production app domains
+    origins.add("https://committoo.space");
+    origins.add("https://www.committoo.space");
 
+    // Replit domains (if applicable)
     if (process.env.REPLIT_DEV_DOMAIN) {
       origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
     }
-
     if (process.env.REPLIT_DOMAINS) {
       process.env.REPLIT_DOMAINS.split(",").forEach((d: string) => {
         origins.add(`https://${d.trim()}`);
       });
     }
-
-    const origin = req.header("origin");
 
     if (origin && origins.has(origin)) {
       res.header("Access-Control-Allow-Origin", origin);
@@ -360,6 +378,15 @@ async function initStripe() {
 (async () => {
   setupCors(app);
 
+  // Health check endpoints - registered early for easy access
+  app.get("/health", (_req, res) => {
+    res.status(200).send("ok");
+  });
+
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ ok: true, timestamp: new Date().toISOString() });
+  });
+
   app.post(
     "/api/stripe/webhook/:uuid",
     express.raw({ type: "application/json" }),
@@ -409,14 +436,15 @@ async function initStripe() {
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "5000", 10);
+  const host = process.env.BIND_HOST || "0.0.0.0";
   server.listen(
     {
       port,
-      host: "0.0.0.0",
+      host,
       reusePort: true,
     },
     () => {
-      log(`express server serving on port ${port}`);
+      log(`express server serving on ${host}:${port}`);
     },
   );
 })();

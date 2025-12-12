@@ -12,11 +12,36 @@ type Props = {
 };
 
 const toneOptions = [
-  { id: "direct", label: "Direct and no-nonsense" },
-  { id: "encouraging", label: "Encouraging and warm" },
-  { id: "analytical", label: "Analytical and data-driven" },
-  { id: "stoic", label: "Stoic and grounded" },
-  { id: "humorous", label: "Humorous and light" },
+  // Group A: Calm
+  {
+    id: "gentle",
+    label: "Gentle",
+    description: "Supportive and understanding",
+  },
+  { id: "practical", label: "Practical", description: "Clear steps, no fluff" },
+  {
+    id: "reassuring",
+    label: "Reassuring",
+    description: "You've got this energy",
+  },
+  {
+    id: "reflective",
+    label: "Reflective",
+    description: "Thoughtful and introspective",
+  },
+  // Group B: Driven
+  { id: "direct", label: "Direct", description: "Straight to the point" },
+  { id: "challenging", label: "Challenging", description: "Push you to grow" },
+  {
+    id: "high_energy",
+    label: "High Energy",
+    description: "Motivating and upbeat",
+  },
+  {
+    id: "no_nonsense",
+    label: "No Nonsense",
+    description: "Action-focused, minimal talk",
+  },
 ];
 
 const accountabilityOptions = [
@@ -72,7 +97,7 @@ export function ToneScreen({ navigation }: Props) {
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
-          How should we talk to you?
+          What communication style helps you most?
         </ThemedText>
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
           Pick 1-2 tones that feel right.
@@ -95,14 +120,26 @@ export function ToneScreen({ navigation }: Props) {
                   },
                 ]}
               >
-                <ThemedText
-                  style={[
-                    styles.chipText,
-                    selected ? { color: theme.primary } : null,
-                  ]}
-                >
-                  {tone.label}
-                </ThemedText>
+                <View style={styles.chipContent}>
+                  <ThemedText
+                    style={[
+                      styles.chipText,
+                      selected
+                        ? { color: theme.primary, fontWeight: "600" }
+                        : null,
+                    ]}
+                  >
+                    {tone.label}
+                  </ThemedText>
+                  <ThemedText
+                    style={[
+                      styles.chipDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {tone.description}
+                  </ThemedText>
+                </View>
                 {selected ? (
                   <Feather name="check" size={14} color={theme.primary} />
                 ) : null}
@@ -220,8 +257,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: Spacing.xs,
   },
+  chipContent: {
+    flex: 1,
+  },
   chipText: {
     fontSize: 13,
+    fontWeight: "500",
+  },
+  chipDescription: {
+    fontSize: 11,
+    marginTop: 2,
   },
   optionList: {
     gap: Spacing.sm,

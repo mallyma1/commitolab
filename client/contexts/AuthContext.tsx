@@ -6,7 +6,7 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, queryClient } from "@/lib/query-client";
 import {
   ONBOARDING_DATA_KEY,
   HAS_EVER_LOGGED_IN_KEY,
@@ -89,16 +89,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        const user = JSON.parse(storedUser);
+        console.log("[auth] session restored from storage, user id:", user.id);
+        setUser(user);
+      } else {
+        console.log("[auth] no stored session found");
       }
-    } catch (error) {
-      console.error("Error loading stored user:", error);
+    } catch {
+      console.error("[auth] error loading stored user");
     } finally {
       setIsLoading(false);
     }
   };
 
   const login = async (email: string, onboardingData?: OnboardingData) => {
+    // Log start without sensitive info
+    console.log("[auth] email login start");
     try {
       const response = await apiRequest("POST", "/api/auth/login", {
         email,
@@ -106,14 +112,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await response.json();
       const userData = data.user;
+      console.log("[auth] email login success, user id:", userData.id);
       setUser(userData);
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
       await AsyncStorage.setItem(HAS_EVER_LOGGED_IN_KEY, "true");
       if (onboardingData) {
         await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
       }
+      console.log("[auth] session stored");
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("[auth] email login failed");
       throw error;
     }
   };
@@ -121,14 +129,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sendPhoneCode = async (
     phone: string
   ): Promise<{ success: boolean; message?: string }> => {
+    console.log("[auth] send phone code start");
     try {
       const response = await apiRequest("POST", "/api/auth/phone/send-code", {
         phoneNumber: phone,
       });
       const data = await response.json();
+      console.log("[auth] phone code sent successfully");
       return { success: true, message: data.message };
-    } catch (error) {
-      console.error("Send phone code error:", error);
+    } catch {
+      console.error("[auth] send phone code failed");
       return { success: false, message: "Failed to send verification code" };
     }
   };
@@ -138,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     code: string,
     onboardingData?: OnboardingData
   ) => {
+    console.log("[auth] phone verify start");
     try {
       const response = await apiRequest("POST", "/api/auth/phone/verify", {
         phoneNumber: phone,
@@ -146,15 +157,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await response.json();
       const userData = data.user;
+      console.log("[auth] phone login success, user id:", userData.id);
       setUser(userData);
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
       await AsyncStorage.setItem(HAS_EVER_LOGGED_IN_KEY, "true");
       if (onboardingData) {
         await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
       }
-    } catch (error) {
-      console.error("Phone login error:", error);
-      throw error;
+      console.log("[auth] session stored");
+    } catch {
+      console.error("[auth] phone verify failed");
+      throw new Error("Verification failed. Please try again.");
     }
   };
 
@@ -207,11 +220,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    console.log("[auth] logout start");
     try {
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      // Clear all cached queries to prevent stale data after logout
+      queryClient.clear();
       setUser(null);
+      console.log("[auth] logout complete, cache cleared");
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("[auth] logout error");
       throw error;
     }
   };
@@ -219,24 +236,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deleteAccount = async () => {
     if (!user) return;
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""}/api/users/${user.id}`,
-        {
-          method: "DELETE",
-          headers: {
-            "x-session-id": user.id,
-          },
-        }
-      );
-      if (!response.ok) {
-        throw new Error("Failed to delete account");
-      }
+      console.log("[auth] delete account start");
+      const response = await apiRequest("DELETE", `/api/users/${user.id}`);
+      await response.json();
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
       await AsyncStorage.removeItem(HAS_EVER_LOGGED_IN_KEY);
       await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
+      // Clear cache on account deletion
+      queryClient.clear();
       setUser(null);
+      console.log("[auth] account deleted, cache cleared");
     } catch (error) {
-      console.error("Delete account error:", error);
+      console.error("[auth] delete account error");
       throw error;
     }
   };
@@ -244,22 +255,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = async (data: Partial<User>) => {
     if (!user) return;
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""}/api/users/${user.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "x-session-id": user.id,
-          },
-          body: JSON.stringify(data),
-        }
-      );
+      console.log("[auth] update user start");
+      const response = await apiRequest("PUT", `/api/users/${user.id}`, data);
       const updatedUser = await response.json();
       setUser(updatedUser);
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+      console.log("[auth] user updated");
     } catch (error) {
-      console.error("Update user error:", error);
+      console.error("[auth] update user error:", error);
       throw error;
     }
   };
@@ -267,19 +270,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = async () => {
     if (!user) return;
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : ""}/api/users/${user.id}`,
-        {
-          headers: {
-            "x-session-id": user.id,
-          },
-        }
-      );
+      console.log("[auth] refresh user start");
+      const response = await apiRequest("GET", `/api/users/${user.id}`);
       const userData = await response.json();
       setUser(userData);
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+      console.log("[auth] user refreshed");
     } catch (error) {
-      console.error("Refresh user error:", error);
+      console.error("[auth] refresh user error:", error);
     }
   };
 

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { getApiUrl } from "@/lib/query-client";
+import { useAuth } from "@/contexts/AuthContext";
 import type {
   OnboardingPayload,
   HabitProfileSummary,
@@ -8,6 +9,49 @@ import type {
 
 type AiStatus = "idle" | "running" | "ready" | "failed";
 const AI_TIMEOUT_MS = 10000; // Reduced from 12s to 10s after backend optimizations
+
+// Simple hash function for payload caching
+function hashPayload(payload: OnboardingPayload, userId?: string): string {
+  const normalized = normalizePayload(payload);
+  // Include ALL inputs that affect AI output to prevent cache collisions
+  // across users or when any significant field changes
+  const key = JSON.stringify({
+    userId: userId || "anonymous", // Different users = different cache
+    roles: normalized.roles?.sort(),
+    focusDomains: normalized.focus_domains?.sort(),
+    focusArea: normalized.focusArea,
+    struggles: normalized.strugglePatterns?.sort(),
+    changeStyle: normalized.change_style,
+    tones: normalized.tonePreferences?.sort(),
+    accountabilityLevel: normalized.preferred_cadence,
+    motivations: normalized.motivations?.sort(),
+    rewardStyle:
+      normalized.reward_style?.sort() || normalized.rewardStyle?.sort(),
+    currentState: normalized.currentState,
+    pressures: normalized.pressures?.sort(),
+    relapseTriggers:
+      normalized.relapse_triggers?.sort() || normalized.relapseTriggers?.sort(),
+  });
+  // Simple 32-bit hash for cache key
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    const char = key.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return `onboarding_ai_${hash.toString(36)}`;
+}
+
+// Cache for AI results
+const aiCache = new Map<
+  string,
+  {
+    summary: HabitProfileSummary;
+    recommendations: CommitmentRecommendation[];
+    timestamp: number;
+  }
+>();
+const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 /**
  * Onboarding data flow (critical vs optional)
@@ -132,6 +176,7 @@ async function fetchWithTimeout(
 }
 
 export function useOnboardingState() {
+  const { user } = useAuth();
   const [payload, setPayload] = useState<OnboardingPayload>({
     roles: [],
     pressures: [],
@@ -168,96 +213,125 @@ export function useOnboardingState() {
     setPayload((prev) => ({ ...prev, [key]: value }));
   }
 
-  const prefetchAI = useCallback(async (currentPayload: OnboardingPayload) => {
-    if (prefetchStartedRef.current) return;
-    prefetchStartedRef.current = true;
+  const prefetchAI = useCallback(
+    async (currentPayload: OnboardingPayload) => {
+      if (prefetchStartedRef.current) return;
 
-    const normalizedPayload = normalizePayload(currentPayload);
-    const fastSummary = buildFastSummary(normalizedPayload);
-    const fastRecs = buildFastRecommendations(normalizedPayload);
+      const cacheKey = hashPayload(currentPayload, user?.id);
+      const cached = aiCache.get(cacheKey);
 
-    // Immediate UI update with fallback
-    setSummary(fastSummary);
-    setSummarySource("fallback");
-    setRecommendations(fastRecs.commitments);
-    setRecommendationsSource("fallback");
+      // Check cache first
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        console.debug(
+          "[onboarding] using cached AI result for user:",
+          user?.id
+        );
+        setSummary(cached.summary);
+        setSummarySource("server");
+        setRecommendations(cached.recommendations);
+        setRecommendationsSource("server");
+        setAiStatus("ready");
+        return;
+      }
 
-    setAiLoading(true);
-    setAiStatus("running");
-    setAiTimedOut(false);
-    setAiDurationMs(null);
-    setAiError(null);
+      prefetchStartedRef.current = true;
 
-    const startedAt = Date.now();
-    let loggedSummarySource: "fallback" | "server" = "fallback";
-    console.debug(
-      "[onboarding] prefetch start - fast profile ready immediately"
-    );
+      const normalizedPayload = normalizePayload(currentPayload);
+      const fastSummary = buildFastSummary(normalizedPayload);
+      const fastRecs = buildFastRecommendations(normalizedPayload);
 
-    try {
-      const summaryUrl = new URL("/api/onboarding/summary", getApiUrl());
-      const summaryRes = await fetchWithTimeout(
-        summaryUrl,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(normalizedPayload),
-        },
-        AI_TIMEOUT_MS
-      );
+      // Immediate UI update with fallback
+      setSummary(fastSummary);
+      setSummarySource("fallback");
+      setRecommendations(fastRecs.commitments);
+      setRecommendationsSource("fallback");
 
-      if (!summaryRes.ok) throw new Error("Failed to fetch summary");
-      const summaryData = (await summaryRes.json()) as HabitProfileSummary;
-      setSummary(summaryData);
-      setSummarySource("server");
-      loggedSummarySource = "server";
+      setAiLoading(true);
+      setAiStatus("running");
+      setAiTimedOut(false);
+      setAiDurationMs(null);
+      setAiError(null);
 
-      const recsUrl = new URL("/api/onboarding/recommendations", getApiUrl());
-      const recsRes = await fetchWithTimeout(
-        recsUrl,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            payload: normalizedPayload,
-            summary: summaryData,
-          }),
-        },
-        AI_TIMEOUT_MS
-      );
-
-      if (!recsRes.ok) throw new Error("Failed to fetch recommendations");
-      const recsData = (await recsRes.json()) as {
-        commitments: CommitmentRecommendation[];
-      };
-      setRecommendations(recsData.commitments);
-      setRecommendationsSource("server");
-      setAiStatus("ready");
-      const duration = Date.now() - startedAt;
+      const startedAt = Date.now();
+      let loggedSummarySource: "fallback" | "server" = "fallback";
       console.debug(
-        `[onboarding] AI refinement complete: ${duration}ms, source: ${loggedSummarySource}`
+        "[onboarding] prefetch start - fast profile ready immediately"
       );
-    } catch (e: any) {
-      const timedOut = e?.message === "Request timed out";
-      setAiTimedOut(timedOut);
-      setAiStatus("failed");
-      setAiError(
-        timedOut
-          ? "This took too long. Using the quick profile for now."
-          : e?.message || "Failed to generate profile"
-      );
-      const duration = Date.now() - startedAt;
-      console.warn(`[onboarding] AI failed after ${duration}ms:`, {
-        timedOut,
-        message: e?.message,
-      });
-    } finally {
-      const duration = Date.now() - startedAt;
-      setAiDurationMs(duration);
-      setAiLoading(false);
-      prefetchStartedRef.current = false;
-    }
-  }, []);
+
+      try {
+        const summaryUrl = new URL("/api/onboarding/summary", getApiUrl());
+        const summaryRes = await fetchWithTimeout(
+          summaryUrl,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(normalizedPayload),
+          },
+          AI_TIMEOUT_MS
+        );
+
+        if (!summaryRes.ok) throw new Error("Failed to fetch summary");
+        const summaryData = (await summaryRes.json()) as HabitProfileSummary;
+        setSummary(summaryData);
+        setSummarySource("server");
+        loggedSummarySource = "server";
+
+        const recsUrl = new URL("/api/onboarding/recommendations", getApiUrl());
+        const recsRes = await fetchWithTimeout(
+          recsUrl,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              payload: normalizedPayload,
+              summary: summaryData,
+            }),
+          },
+          AI_TIMEOUT_MS
+        );
+
+        if (!recsRes.ok) throw new Error("Failed to fetch recommendations");
+        const recsData = (await recsRes.json()) as {
+          commitments: CommitmentRecommendation[];
+        };
+        setRecommendations(recsData.commitments);
+        setRecommendationsSource("server");
+        setAiStatus("ready");
+
+        // Cache successful result
+        aiCache.set(cacheKey, {
+          summary: summaryData,
+          recommendations: recsData.commitments,
+          timestamp: Date.now(),
+        });
+
+        const duration = Date.now() - startedAt;
+        console.debug(
+          `[onboarding] AI refinement complete: ${duration}ms, source: ${loggedSummarySource}, cached`
+        );
+      } catch (e: any) {
+        const timedOut = e?.message === "Request timed out";
+        setAiTimedOut(timedOut);
+        setAiStatus("failed");
+        setAiError(
+          timedOut
+            ? "Request timed out"
+            : e?.message || "Failed to generate profile"
+        );
+        const duration = Date.now() - startedAt;
+        console.warn(`[onboarding] AI failed after ${duration}ms:`, {
+          timedOut,
+          message: e?.message,
+        });
+      } finally {
+        const duration = Date.now() - startedAt;
+        setAiDurationMs(duration);
+        setAiLoading(false);
+        prefetchStartedRef.current = false;
+      }
+    },
+    [user?.id]
+  );
 
   return {
     payload,

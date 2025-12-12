@@ -133,7 +133,7 @@ Edit `eas.json` → `build.production.env`:
 ```json
 "production": {
   "env": {
-    "EXPO_PUBLIC_DOMAIN": "api.commito.app"  // Your actual production API domain
+      "EXPO_PUBLIC_DOMAIN": "api.committoo.space"  // Your actual production API domain
   }
 }
 ```
@@ -142,82 +142,35 @@ Edit `eas.json` → `build.production.env`:
 
 ## Step 3: Deploy Backend Server
 
-### Option A: Deploy to Fly.io (Recommended)
+### Deploy Backend to Render (recommended)
 
-```bash
-# Install Fly CLI
-curl -L https://fly.io/install.sh | sh
+**Why Render:** fast HTTPS, simple env/secrets, reliable free tier.
 
-# Login
-fly auth login
+1) Render → New → Web Service
+   - Repo: commitolab (root)
+   - Branch: main
+2) Build: `npm install && npm run server:build`
+3) Start: `PORT=$PORT BIND_HOST=0.0.0.0 NODE_ENV=production node server_dist/index.js`
+4) Env vars (Render dashboard):
+   - `PORT` (provided)
+   - `BIND_HOST=0.0.0.0`
+   - `NODE_ENV=production`
+   - `EXPO_PUBLIC_DOMAIN=api.committoo.space`
+   - `DATABASE_URL=<prod postgres>`
+   - `OPENAI_API_KEY=<key>`
+   - `STRIPE_SECRET_KEY=<key>` (if subscriptions)
+   - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (if SMS)
+5) CORS: already whitelisted in server/index.ts for `https://committoo.space` and `https://www.committoo.space`.
+6) Health: `GET https://api.committoo.space/api/health` should return 200 JSON.
+7) Smoke (local): run server locally then `npm run smoke:config`.
 
-# Create app
-fly launch --name commito-api --region sjc
+### Cloudflare DNS (committoo.space)
+- CNAME `api` → Render service hostname, proxy ON (orange cloud).
+- SSL/TLS: "Full". Optionally bypass cache for `/api/*`.
 
-# Set secrets
-fly secrets set DATABASE_URL="your_production_db_url"
-fly secrets set OPENAI_API_KEY="your_openai_key"
-fly secrets set STRIPE_SECRET_KEY="your_stripe_key"
-fly secrets set NODE_ENV=production
-fly secrets set FREE_MODE=false
-
-# Deploy
-fly deploy
-
-# Get your production URL
-fly info
-# Note the hostname (e.g., commito-api.fly.dev)
-```
-
-### Option B: Deploy to Railway
-
-```bash
-# Install Railway CLI
-npm i -g @railway/cli
-
-# Login
-railway login
-
-# Create project
-railway init
-
-# Link to your project
-railway link
-
-# Set environment variables in Railway dashboard
-# Then deploy
-railway up
-```
-
-### Option C: Deploy to Heroku
-
-```bash
-# Install Heroku CLI
-curl https://cli-assets.heroku.com/install.sh | sh
-
-# Login
-heroku login
-
-# Create app
-heroku create commito-api
-
-# Add PostgreSQL
-heroku addons:create heroku-postgresql:essential-0
-
-# Set config vars
-heroku config:set OPENAI_API_KEY="your_key"
-heroku config:set STRIPE_SECRET_KEY="your_key"
-heroku config:set NODE_ENV=production
-heroku config:set FREE_MODE=false
-
-# Deploy
-git push heroku main
-```
-
-**After deployment:**
-1. Note your production backend URL
-2. Update `EXPO_PUBLIC_DOMAIN` in eas.json to match
-3. Test API is accessible: `curl https://your-api.fly.dev/api/health`
+### Client configuration
+- EAS/production: `EXPO_PUBLIC_DOMAIN=api.committoo.space` (no protocol).
+- Local dev: `EXPO_PUBLIC_DOMAIN=localhost:5000`.
 
 ---
 

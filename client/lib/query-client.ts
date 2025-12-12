@@ -1,19 +1,58 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { Platform } from "react-native";
+
+let hasWarnedAboutLocalhost = false;
 
 /**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
- * @returns {string} The API base URL
+ * Gets the base URL for the Express API server
+ * @returns {string} The API base URL (always HTTPS for production)
  */
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
+  // Prefer EXPO_PUBLIC_API_URL (full URL), fallback to EXPO_PUBLIC_DOMAIN (hostname only)
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
 
-  if (!host) {
-    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+  let resolvedUrl: string;
+
+  if (apiUrl) {
+    // Full URL provided (e.g., https://api.committoo.space)
+    resolvedUrl = apiUrl;
+  } else if (domain) {
+    // Legacy: domain only, construct HTTPS URL
+    resolvedUrl = `https://${domain}`;
+  } else {
+    // No config: use production URL as safe default
+    resolvedUrl = "https://api.committoo.space";
+    if (__DEV__) {
+      console.warn(
+        "[API] No EXPO_PUBLIC_API_URL or EXPO_PUBLIC_DOMAIN set. " +
+          "Defaulting to production: https://api.committoo.space"
+      );
+    }
   }
 
-  let url = new URL(`https://${host}`);
+  // Ensure it's a valid URL and always HTTPS (except localhost)
+  try {
+    const parsed = new URL(resolvedUrl);
+    if (parsed.protocol === "http:" && !parsed.hostname.includes("localhost")) {
+      // Force HTTPS for non-localhost
+      parsed.protocol = "https:";
+      resolvedUrl = parsed.href;
+    }
+  } catch (e) {
+    console.error("[API] Invalid URL:", resolvedUrl, e);
+    throw new Error(`Invalid API URL: ${resolvedUrl}`);
+  }
 
-  return url.href;
+  // Log once on startup
+  if (!hasWarnedAboutLocalhost) {
+    console.log("[API] Base URL resolved:", resolvedUrl);
+    console.log("[API] __DEV__:", __DEV__);
+    console.log("[API] Platform.OS:", Platform.OS);
+    hasWarnedAboutLocalhost = true;
+  }
+
+  return resolvedUrl;
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -30,16 +69,28 @@ export async function apiRequest(
 ): Promise<Response> {
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
+  const start = Date.now();
 
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  console.log(`[API] ${method} ${route}`);
 
-  await throwIfResNotOk(res);
-  return res;
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
+
+    const latency = Date.now() - start;
+    console.log(`[API] ${method} ${route} - ${res.status} (${latency}ms)`);
+
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    const latency = Date.now() - start;
+    console.error(`[API] ${method} ${route} - ERROR (${latency}ms):`, error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
