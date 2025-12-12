@@ -25,17 +25,57 @@ import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 import type { DopamineEntry } from "@shared/schema";
 
 const CHECKLIST_ITEMS = [
-  { id: "movedBody", label: "Moved body", icon: "activity", description: "Any physical activity" },
-  { id: "daylight", label: "Got daylight", icon: "sun", description: "Natural light exposure" },
-  { id: "social", label: "Social connection", icon: "users", description: "Meaningful interaction" },
-  { id: "creative", label: "Creativity", icon: "edit-3", description: "Made or created something" },
-  { id: "music", label: "Music", icon: "music", description: "Listened or played" },
-  { id: "learning", label: "Learned something", icon: "book-open", description: "New information or skill" },
-  { id: "coldExposure", label: "Cold exposure", icon: "droplet", description: "Cold shower or similar" },
-  { id: "protectedSleep", label: "Protected sleep", icon: "moon", description: "Quality rest" },
+  {
+    id: "movedBody",
+    label: "Moved your body",
+    icon: "activity",
+    description: "Walk, workout, stretch or any physical effort.",
+  },
+  {
+    id: "daylight",
+    label: "Got daylight",
+    icon: "sun",
+    description: "At least a few minutes of natural light.",
+  },
+  {
+    id: "social",
+    label: "Real connection",
+    icon: "users",
+    description: "Spoke, laughed or shared a moment with someone.",
+  },
+  {
+    id: "creative",
+    label: "Created something",
+    icon: "edit-3",
+    description: "Even small: writing, cooking, building, planning.",
+  },
+  {
+    id: "music",
+    label: "Intentional music",
+    icon: "music",
+    description: "Listened to music on purpose, not just in the background.",
+  },
+  {
+    id: "learning",
+    label: "Learned something",
+    icon: "book-open",
+    description: "New idea, skill, or insight you did not have yesterday.",
+  },
+  {
+    id: "coldExposure",
+    label: "Cold exposure",
+    icon: "droplet",
+    description: "Cold shower, plunge or even a short cold rinse.",
+  },
+  {
+    id: "protectedSleep",
+    label: "Protected your sleep",
+    icon: "moon",
+    description: "Gave yourself a real chance to rest (bedtime, screens, comfort).",
+  },
 ] as const;
 
-type ChecklistKey = typeof CHECKLIST_ITEMS[number]["id"];
+type ChecklistKey = (typeof CHECKLIST_ITEMS)[number]["id"];
 
 export default function DopamineLabScreen() {
   return (
@@ -78,14 +118,17 @@ function DopamineLabContent() {
     },
   });
 
-  const isChecked = useCallback((id: ChecklistKey): boolean => {
-    if (!todayEntry) return false;
-    return Boolean(todayEntry[id]);
-  }, [todayEntry]);
+  const isChecked = useCallback(
+    (id: ChecklistKey): boolean => {
+      if (!todayEntry) return false;
+      return Boolean((todayEntry as any)[id]);
+    },
+    [todayEntry],
+  );
 
   const checkedCount = useMemo(() => {
     if (!todayEntry) return 0;
-    return CHECKLIST_ITEMS.filter(item => todayEntry[item.id]).length;
+    return CHECKLIST_ITEMS.filter((item) => (todayEntry as any)[item.id]).length;
   }, [todayEntry]);
 
   const toggleItem = (id: ChecklistKey) => {
@@ -101,16 +144,24 @@ function DopamineLabContent() {
 
   const insight = useMemo(() => {
     if (score === 0) {
-      return "Start your natural dopamine journey today. Even one activity counts.";
+      return "Start with one small win. One natural hit today already changes the pattern.";
     } else if (score <= 2) {
-      return "Good start. Small consistent actions build lasting habits.";
+      return "Good start. Consistent small actions reshape your reward system over time.";
     } else if (score <= 4) {
-      return "Nice progress. Your brain is getting natural rewards.";
+      return "Solid balance. You are already giving your brain more stable rewards.";
     } else if (score <= 6) {
-      return "Excellent balance. You're supporting healthy dopamine production.";
+      return "Strong day. You are stacking habits that support mood, focus and motivation.";
     } else {
-      return "Outstanding. You're building a foundation for sustainable motivation.";
+      return "Elite day. You are consistently choosing behaviours that compound over years, not minutes.";
     }
+  }, [score]);
+
+  const patternLabel = useMemo(() => {
+    if (score === 0) return "Today is still wide open.";
+    if (score <= 2) return "Light baseline of natural dopamine.";
+    if (score <= 4) return "You are building a steady base.";
+    if (score <= 6) return "You have a strong, protective pattern today.";
+    return "This is the kind of day that rewires your defaults.";
   }, [score]);
 
   if (isLoading) {
@@ -128,41 +179,98 @@ function DopamineLabContent() {
           styles.content,
           {
             paddingTop: headerHeight + Spacing.lg,
-            paddingBottom: tabBarHeight + Spacing.xl,
+            paddingBottom: tabBarHeight + Spacing.xl + insets.bottom,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.educationCard, { backgroundColor: `${EarthyColors.forestGreen}15` }]}>
+        {/* Intro card: why this lab exists */}
+        <View
+          style={[
+            styles.educationCard,
+            { backgroundColor: `${EarthyColors.forestGreen}15` },
+          ]}
+        >
           <Feather name="info" size={20} color={EarthyColors.forestGreen} />
           <View style={styles.educationContent}>
             <ThemedText type="h4" style={{ color: EarthyColors.forestGreen }}>
-              Natural Dopamine
+              The Dopamine Lab
             </ThemedText>
             <ThemedText style={[styles.educationText, { color: theme.textSecondary }]}>
-              Dopamine is your motivation molecule. Natural activities like movement, 
-              sunlight, and connection provide sustainable rewards without the crash 
-              of quick digital hits.
+              This space tracks the simple behaviours that support healthy dopamine
+              regulation over time: movement, light, sleep, connection and effort.
+              It is not medical advice, but a daily snapshot of the habits that keep
+              your motivation system stable instead of spiking and crashing.
+            </ThemedText>
+            <ThemedText
+              style={[
+                styles.educationHint,
+                { color: theme.textSecondary },
+              ]}
+            >
+              Aim for at least 4 natural dopamine actions most days. A few small
+              ticks here, done consistently, have more impact than any single big reset.
             </ThemedText>
           </View>
         </View>
 
+        {/* Score and pattern */}
         <View style={styles.scoreSection}>
-          <View style={[styles.scoreCircle, { borderColor: EarthyColors.copper }]}>
-            <ThemedText style={[styles.scoreNumber, { color: EarthyColors.copper }]}>
+          <View
+            style={[
+              styles.scoreCircle,
+              { borderColor: EarthyColors.copper },
+            ]}
+          >
+            <ThemedText
+              style={[styles.scoreNumber, { color: EarthyColors.copper }]}
+            >
               {score}
             </ThemedText>
-            <ThemedText style={[styles.scoreMax, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.scoreMax, { color: theme.textSecondary }]}
+            >
               /{maxScore}
             </ThemedText>
           </View>
           <ThemedText style={[styles.scoreLabel, { color: theme.textSecondary }]}>
-            Today's Natural Rewards
+            Today&apos;s natural dopamine score
+          </ThemedText>
+          <ThemedText style={[styles.patternLabel, { color: theme.textSecondary }]}>
+            {patternLabel}
           </ThemedText>
         </View>
 
+        {/* How to use section */}
+        <View style={styles.howToCard}>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.xs }}>
+            How to use this each day
+          </ThemedText>
+          <View style={styles.howToRow}>
+            <View style={styles.dot} />
+            <ThemedText style={[styles.howToText, { color: theme.textSecondary }]}>
+              Check off only what you genuinely did, even if it was small.
+            </ThemedText>
+          </View>
+          <View style={styles.howToRow}>
+            <View style={styles.dot} />
+            <ThemedText style={[styles.howToText, { color: theme.textSecondary }]}>
+              Use this as a counterweight to quick hits like scrolling, gambling,
+              or constant notifications.
+            </ThemedText>
+          </View>
+          <View style={styles.howToRow}>
+            <View style={styles.dot} />
+            <ThemedText style={[styles.howToText, { color: theme.textSecondary }]}>
+              Do not chase perfection. The goal is a stable, repeatable pattern,
+              not a perfect score.
+            </ThemedText>
+          </View>
+        </View>
+
+        {/* Checklist */}
         <ThemedText type="h4" style={styles.sectionTitle}>
-          Daily Checklist
+          Today&apos;s checklist
         </ThemedText>
 
         <View style={styles.checklist}>
@@ -177,9 +285,8 @@ function DopamineLabContent() {
                     backgroundColor: checked
                       ? `${EarthyColors.forestGreen}15`
                       : theme.backgroundSecondary,
-                    borderColor: checked
-                      ? EarthyColors.forestGreen
-                      : theme.border,
+                    borderColor: checked ? EarthyColors.forestGreen : theme.border,
+                    opacity: saveMutation.isPending ? 0.7 : 1,
                   },
                 ]}
                 onPress={() => toggleItem(item.id)}
@@ -204,13 +311,17 @@ function DopamineLabContent() {
                     </Animated.View>
                   ) : null}
                 </View>
+
                 <View style={styles.itemIcon}>
                   <Feather
                     name={item.icon as any}
                     size={20}
-                    color={checked ? EarthyColors.forestGreen : theme.textSecondary}
+                    color={
+                      checked ? EarthyColors.forestGreen : theme.textSecondary
+                    }
                   />
                 </View>
+
                 <View style={styles.itemContent}>
                   <ThemedText
                     style={[
@@ -220,7 +331,12 @@ function DopamineLabContent() {
                   >
                     {item.label}
                   </ThemedText>
-                  <ThemedText style={[styles.itemDescription, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    style={[
+                      styles.itemDescription,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     {item.description}
                   </ThemedText>
                 </View>
@@ -229,13 +345,21 @@ function DopamineLabContent() {
           })}
         </View>
 
-        <View style={[styles.insightCard, { backgroundColor: `${EarthyColors.copper}15` }]}>
+        {/* Insight card */}
+        <View
+          style={[
+            styles.insightCard,
+            { backgroundColor: `${EarthyColors.copper}15` },
+          ]}
+        >
           <Feather name="zap" size={20} color={EarthyColors.copper} />
           <View style={styles.insightContent}>
             <ThemedText type="h4" style={{ color: EarthyColors.copper }}>
-              Today's Insight
+              Today&apos;s insight
             </ThemedText>
-            <ThemedText style={[styles.insightText, { color: theme.text }]}>
+            <ThemedText
+              style={[styles.insightText, { color: theme.text }]}
+            >
               {insight}
             </ThemedText>
           </View>
@@ -272,14 +396,19 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: Spacing.xs,
   },
+  educationHint: {
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: Spacing.sm,
+  },
   scoreSection: {
     alignItems: "center",
     marginBottom: Spacing.xl,
   },
   scoreCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     borderWidth: 4,
     justifyContent: "center",
     alignItems: "center",
@@ -296,6 +425,38 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     fontSize: 14,
+  },
+  patternLabel: {
+    fontSize: 13,
+    marginTop: 4,
+    textAlign: "center",
+    paddingHorizontal: Spacing.md,
+  },
+  howToCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(255,255,255,0.01)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.04)",
+    marginBottom: Spacing.xl,
+  },
+  howToRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 7,
+    backgroundColor: EarthyColors.copper,
+  },
+  howToText: {
+    fontSize: 13,
+    lineHeight: 20,
+    flex: 1,
   },
   sectionTitle: {
     marginBottom: Spacing.md,
@@ -341,6 +502,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
+    marginBottom: Spacing.xl,
   },
   insightContent: {
     flex: 1,
