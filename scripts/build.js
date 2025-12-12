@@ -29,22 +29,15 @@ function setupSignalHandlers() {
 }
 
 function getDeploymentUrl() {
-  if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
-    const url = `https://${process.env.REPLIT_INTERNAL_APP_DOMAIN}`;
-    console.log("Using REPLIT_INTERNAL_APP_DOMAIN:", url);
-    return url;
+  // Deployment URLs are now managed via environment configuration
+  // Use standard environment variables for API deployment
+  if (!process.env.EXPO_PUBLIC_API_URL) {
+    console.error(
+      "ERROR: EXPO_PUBLIC_API_URL not set. Please configure your deployment URL.",
+    );
+    process.exit(1);
   }
-
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    const url = `https://${process.env.REPLIT_DEV_DOMAIN}`;
-    console.log("Using REPLIT_DEV_DOMAIN:", url);
-    return url;
-  }
-
-  console.error(
-    "ERROR: REPLIT_INTERNAL_APP_DOMAIN and REPLIT_DEV_DOMAIN not set",
-  );
-  process.exit(1);
+  return process.env.EXPO_PUBLIC_API_URL;
 }
 
 function prepareDirectories(timestamp) {

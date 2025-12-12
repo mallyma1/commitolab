@@ -5,55 +5,80 @@ let hasWarnedAboutLocalhost = false;
 
 /**
  * Gets the base URL for the Express API server
- * @returns {string} The API base URL (always HTTPS for production)
+ * CRITICAL: Always returns https://api.committoo.space for production
+ * 
+ * SUPPORTED AUTH ROUTES (backend):
+ * - POST /api/auth/login (email passwordless)
+ * - POST /api/auth/phone/send-code
+ * - POST /api/auth/phone/verify
+ * - POST /api/auth/google
+ * - POST /api/auth/apple
+ * 
+ * @returns {string} The API base URL (always HTTPS)
  */
 export function getApiUrl(): string {
-  // Prefer EXPO_PUBLIC_API_URL (full URL), fallback to EXPO_PUBLIC_DOMAIN (hostname only)
+  // Use EXPO_PUBLIC_API_URL only - no fallbacks to avoid ambiguity
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
 
-  let resolvedUrl: string;
+  // Hard default to production API
+  const resolvedUrl = apiUrl || "https://api.committoo.space";
 
-  if (apiUrl) {
-    // Full URL provided (e.g., https://api.committoo.space)
-    resolvedUrl = apiUrl;
-  } else if (domain) {
-    // Legacy: domain only, construct HTTPS URL
-    resolvedUrl = `https://${domain}`;
-  } else {
-    // No config: use production URL as safe default
-    resolvedUrl = "https://api.committoo.space";
-    if (__DEV__) {
-      console.warn(
-        "[API] No EXPO_PUBLIC_API_URL or EXPO_PUBLIC_DOMAIN set. " +
-          "Defaulting to production: https://api.committoo.space"
-      );
-    }
-  }
-
-  // Ensure it's a valid URL and always HTTPS (except localhost)
+  // Validate URL format
   try {
     const parsed = new URL(resolvedUrl);
+    
+    // 🚨 CRITICAL: Prevent using committoo.space without api. subdomain
+    if (
+      parsed.hostname === "committoo.space" ||
+      parsed.hostname === "www.committoo.space"
+    ) {
+      const errorMsg =
+        `[API] ❌ FATAL: Cannot use ${parsed.hostname} as API base URL. ` +
+        `Must use 'api.committoo.space' for API requests.`;
+      console.error(errorMsg);
+      if (__DEV__) {
+        throw new Error(errorMsg);
+      }
+    }
+    
+    // Ensure HTTPS (except localhost for local dev)
     if (parsed.protocol === "http:" && !parsed.hostname.includes("localhost")) {
-      // Force HTTPS for non-localhost
-      parsed.protocol = "https:";
-      resolvedUrl = parsed.href;
+      throw new Error(
+        `[API] Insecure HTTP URL not allowed in production: ${resolvedUrl}`
+      );
     }
   } catch (e) {
-    console.error("[API] Invalid URL:", resolvedUrl, e);
+    console.error("[API] Invalid API URL:", resolvedUrl, e);
     throw new Error(`Invalid API URL: ${resolvedUrl}`);
   }
 
-  // Log once on startup
+  // Log once on startup for debugging
   if (!hasWarnedAboutLocalhost) {
-    console.log("[API] Base URL resolved:", resolvedUrl);
-    console.log("[API] __DEV__:", __DEV__);
-    console.log("[API] Platform.OS:", Platform.OS);
+    console.log("[API] ═══════════════════════════════════════");
+    console.log("[API] 🔗 API Configuration");
+    console.log("[API] ─────────────────────────────────────────────────");
+    console.log(`[API] Base URL:              ${resolvedUrl}`);
+    console.log(`[API] EXPO_PUBLIC_API_URL:  ${apiUrl || "❌ NOT SET (using default)"}`);
+    console.log(`[API] Development Mode:     ${__DEV__ ? "YES" : "NO"}`);
+    console.log(`[API] Platform:             ${Platform.OS}`);
+    console.log("[API] ═══════════════════════════════════════");
     hasWarnedAboutLocalhost = true;
   }
 
   return resolvedUrl;
 }
+
+/**
+ * Canonical auth routes supported by backend
+ * DO NOT modify these without updating server/routes.ts
+ */
+export const AUTH_ROUTES = {
+  LOGIN: "/api/auth/login",
+  PHONE_SEND_CODE: "/api/auth/phone/send-code",
+  PHONE_VERIFY: "/api/auth/phone/verify",
+  GOOGLE: "/api/auth/google",
+  APPLE: "/api/auth/apple",
+} as const;
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -71,24 +96,28 @@ export async function apiRequest(
   const url = new URL(route, baseUrl);
   const start = Date.now();
 
-  console.log(`[API] ${method} ${route}`);
+  console.log(`[API] 📤 ${method.toUpperCase()} ${route}`);
+  console.log(`[API]    Full URL: ${url.href}`);
 
   try {
     const res = await fetch(url, {
       method,
+      mode: "cors",
       headers: data ? { "Content-Type": "application/json" } : {},
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
     });
 
     const latency = Date.now() - start;
-    console.log(`[API] ${method} ${route} - ${res.status} (${latency}ms)`);
+    const statusEmoji = res.ok ? "✅" : "❌";
+    console.log(`[API] ${statusEmoji} ${method.toUpperCase()} ${route} - ${res.status} (${latency}ms)`);
 
     await throwIfResNotOk(res);
     return res;
   } catch (error) {
     const latency = Date.now() - start;
-    console.error(`[API] ${method} ${route} - ERROR (${latency}ms):`, error);
+    console.error(`[API] ❌ ${method.toUpperCase()} ${route} - ERROR (${latency}ms)`);
+    console.error(`[API]    Error: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
@@ -103,6 +132,7 @@ export const getQueryFn: <T>(options: {
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
     const res = await fetch(url, {
+      mode: "cors",
       credentials: "include",
     });
 

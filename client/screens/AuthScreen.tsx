@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as AppleAuthentication from "expo-apple-authentication";
 
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { ThemedText } from "@/components/ThemedText";
@@ -25,20 +26,27 @@ type AuthMode = "select" | "email" | "phone";
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { login, loginWithPhone, sendPhoneCode } = useAuth();
+  const { login, loginWithPhone, sendPhoneCode, loginWithApple } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>("select");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(
     null
   );
 
   useEffect(() => {
     loadOnboardingData();
+    checkAppleAvailability();
   }, []);
+
+  const checkAppleAvailability = async () => {
+    const available = await AppleAuthentication.isAvailableAsync();
+    setAppleAvailable(available);
+  };
 
   const loadOnboardingData = async () => {
     try {
@@ -52,22 +60,68 @@ export default function AuthScreen() {
   };
 
   const handleEmailLogin = async () => {
-    if (!email.trim()) {
-      Alert.alert("Email Required", "Please enter your email address");
-      return;
-    }
-
+    const trimmedEmail = email.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
+    if (!emailRegex.test(trimmedEmail)) {
       Alert.alert("Invalid Email", "Please enter a valid email address");
       return;
     }
 
     setIsLoading(true);
     try {
-      await login(email.trim().toLowerCase(), onboardingData || undefined);
-    } catch {
-      Alert.alert("Login Failed", "Something went wrong. Please try again.");
+      await login(trimmedEmail.toLowerCase(), onboardingData || undefined);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log("[UI] Login error caught:", errorMsg);
+      
+      let userMessage = "Something went wrong. Please try again.";
+      let title = "Login Failed";
+      
+      if (errorMsg.includes("Network") || errorMsg.includes("Failed to fetch")) {
+        title = "Connection Error";
+        userMessage = "Can't reach the server. Check your internet connection.";
+      } else if (errorMsg.includes("CORS")) {
+        title = "Server Configuration Error";
+        userMessage = "The app can't communicate with the server.";
+      } else if (errorMsg.includes("Invalid response")) {
+        title = "Server Error";
+        userMessage = "The server returned an unexpected response.";
+      } else if (errorMsg.includes("JSON")) {
+        title = "Server Error";
+        userMessage = "Server response was invalid. Please contact support.";
+      } else if (errorMsg.includes("user data")) {
+        title = "Server Error";
+        userMessage = "Account creation failed. Please try again.";
+      }
+      
+      Alert.alert(title, userMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAppleLogin = async () => {
+    setIsLoading(true);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      await loginWithApple(
+        {
+          identityToken: credential.identityToken || "",
+          email: credential.email,
+          fullName: credential.fullName,
+        },
+        onboardingData || undefined
+      );
+    } catch (error: any) {
+      if (error.code !== "ERR_CANCELED") {
+        Alert.alert("Apple Login Failed", "Something went wrong. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -169,6 +223,13 @@ export default function AuthScreen() {
 
   const renderSelectMode = () => (
     <View style={styles.form}>
+      {appleAvailable &&
+        renderSSOButton(
+          "Continue with Apple",
+          "apple",
+          "#000",
+          handleAppleLogin
+        )}
       {renderSSOButton(
         "Continue with Email",
         "mail",

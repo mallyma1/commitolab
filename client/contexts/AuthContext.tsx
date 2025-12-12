@@ -6,7 +6,7 @@ import React, {
   ReactNode,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest, queryClient } from "@/lib/query-client";
+import { apiRequest, queryClient, AUTH_ROUTES } from "@/lib/query-client";
 import {
   ONBOARDING_DATA_KEY,
   HAS_EVER_LOGGED_IN_KEY,
@@ -103,25 +103,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, onboardingData?: OnboardingData) => {
-    // Log start without sensitive info
-    console.log("[auth] email login start");
+    console.log("[auth] 📧 Email login start");
+    console.log(`[auth]    Email: ${email}`);
+    console.log(`[auth]    Route: ${AUTH_ROUTES.LOGIN}`);
+    console.log(`[auth]    API URL: ${process.env.EXPO_PUBLIC_API_URL || "(not set)"}`);
     try {
-      const response = await apiRequest("POST", "/api/auth/login", {
+      const response = await apiRequest("POST", AUTH_ROUTES.LOGIN, {
         email,
         onboarding: onboardingData,
       });
-      const data = await response.json();
+      
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error("[auth] ❌ Failed to parse response as JSON");
+        throw new Error(`Invalid response format from server (${response.status})`);
+      }
+      
+      if (!data.user) {
+        console.error("[auth] ❌ Response missing user object");
+        throw new Error("Server response missing user data");
+      }
+      
       const userData = data.user;
-      console.log("[auth] email login success, user id:", userData.id);
+      console.log(`[auth] ✅ Email login success`);
+      console.log(`[auth]    User ID: ${userData.id}`);
+      
       setUser(userData);
       await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
       await AsyncStorage.setItem(HAS_EVER_LOGGED_IN_KEY, "true");
+      
       if (onboardingData) {
         await AsyncStorage.removeItem(ONBOARDING_DATA_KEY);
       }
-      console.log("[auth] session stored");
+      console.log("[auth] ✅ Session persisted to AsyncStorage");
     } catch (error) {
-      console.error("[auth] email login failed");
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[auth] ❌ Email login failed");
+      console.error(`[auth]    Error: ${errorMsg}`);
       throw error;
     }
   };
@@ -131,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ success: boolean; message?: string }> => {
     console.log("[auth] send phone code start");
     try {
-      const response = await apiRequest("POST", "/api/auth/phone/send-code", {
+      const response = await apiRequest("POST", AUTH_ROUTES.PHONE_SEND_CODE, {
         phoneNumber: phone,
       });
       const data = await response.json();
@@ -150,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     console.log("[auth] phone verify start");
     try {
-      const response = await apiRequest("POST", "/api/auth/phone/verify", {
+      const response = await apiRequest("POST", AUTH_ROUTES.PHONE_VERIFY, {
         phoneNumber: phone,
         code,
         onboarding: onboardingData,
@@ -176,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onboardingData?: OnboardingData
   ) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/google", {
+      const response = await apiRequest("POST", AUTH_ROUTES.GOOGLE, {
         accessToken,
         onboarding: onboardingData,
       });
@@ -199,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onboardingData?: OnboardingData
   ) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/apple", {
+      const response = await apiRequest("POST", AUTH_ROUTES.APPLE, {
         identityToken: credential.identityToken,
         email: credential.email,
         fullName: credential.fullName,

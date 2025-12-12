@@ -319,9 +319,10 @@ export function useOnboardingState() {
             : e?.message || "Failed to generate profile"
         );
         const duration = Date.now() - startedAt;
-        console.warn(`[onboarding] AI failed after ${duration}ms:`, {
+        console.warn(`[onboarding] ❌ AI failed after ${duration}ms:`, {
           timedOut,
           message: e?.message,
+          error: e?.code || e?.name,
         });
       } finally {
         const duration = Date.now() - startedAt;

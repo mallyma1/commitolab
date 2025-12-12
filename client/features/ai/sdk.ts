@@ -6,26 +6,17 @@
  */
 
 const baseUrl = (() => {
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-
-  let resolvedUrl: string;
-
-  if (apiUrl) {
-    resolvedUrl = apiUrl;
-  } else if (domain) {
-    resolvedUrl = `https://${domain}`;
-  } else {
-    resolvedUrl = "https://api.committoo.space";
-    if (__DEV__) {
-      console.warn(
-        "[AI SDK] No API URL configured, using production: https://api.committoo.space"
-      );
-    }
-  }
-
-  console.log("[AI SDK] Base URL:", resolvedUrl);
-  return resolvedUrl;
+  // Use EXPO_PUBLIC_API_URL only - hard default to production
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || "https://api.committoo.space";
+  
+  console.log("[AI SDK] ═══════════════════════════════════════");
+  console.log("[AI SDK] 🤖 AI SDK Configuration");
+  console.log("[AI SDK] ─────────────────────────────────────");
+  console.log(`[AI SDK] Base URL: ${apiUrl}`);
+  console.log(`[AI SDK] EXPO_PUBLIC_API_URL: ${process.env.EXPO_PUBLIC_API_URL || "❌ NOT SET"}`);
+  console.log("[AI SDK] ═══════════════════════════════════════");
+  
+  return apiUrl;
 })();
 
 // Types matching backend contract

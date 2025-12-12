@@ -70,6 +70,8 @@ DATABASE_URL=postgresql://committoo_user:xxxxx@dpg-xxxxx/committoo_db
 **Option B: External Database (Neon/Supabase)**
 ```bash
 DATABASE_URL=postgresql://user:password@host:5432/database
+# For Supabase/Neon: also set
+PGSSLMODE=require
 ```
 
 ### API Keys (Required for full functionality)
