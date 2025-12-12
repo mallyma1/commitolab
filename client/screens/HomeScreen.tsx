@@ -1,5 +1,11 @@
 import React, { useCallback, useMemo } from "react";
-import { View, FlatList, StyleSheet, RefreshControl, Image, Pressable } from "react-native";
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  RefreshControl,
+  Pressable,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -13,7 +19,12 @@ import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { useCommitments, useTodayCheckIns, useCreateCheckIn, Commitment, CheckIn } from "@/hooks/useCommitments";
+import {
+  useCommitments,
+  useTodayCheckIns,
+  useCreateCheckIn,
+  Commitment,
+} from "@/hooks/useCommitments";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import CommitmentCard from "@/components/CommitmentCard";
 import { getGreeting, getCopy, getFocusAreaLabel } from "@/lib/tone-engine";
@@ -31,11 +42,14 @@ export default function HomeScreen() {
   const { data: todayCheckIns } = useTodayCheckIns();
   const createCheckIn = useCreateCheckIn();
 
-  const activeCommitments = commitments?.filter((c) => c.active) || [];
+  const activeCommitments = useMemo(
+    () => commitments?.filter((c) => c.active) || [],
+    [commitments]
+  );
   const copy = getCopy(user?.identityArchetype);
   const greeting = getGreeting(user?.displayName);
   const focusLabel = getFocusAreaLabel(user?.primaryGoalCategory);
-  
+
   const todayCheckedInIds = useMemo(() => {
     return new Set(todayCheckIns?.map((c) => c.commitmentId) || []);
   }, [todayCheckIns]);
@@ -49,15 +63,13 @@ export default function HomeScreen() {
   }, [activeCommitments, todayCheckedInIds]);
 
   const missedYesterday = useMemo(() => {
-    return activeCommitments.some((c) => c.currentStreak === 0 && c.longestStreak > 0);
+    return activeCommitments.some(
+      (c) => c.currentStreak === 0 && c.longestStreak > 0
+    );
   }, [activeCommitments]);
 
   const handleCreateNew = useCallback(() => {
     navigation.navigate("CommitmentWizard");
-  }, [navigation]);
-
-  const handleOpenStoicRoom = useCallback(() => {
-    navigation.navigate("StoicRoom");
   }, [navigation]);
 
   const handleSelectCommitment = useCallback(
@@ -79,54 +91,100 @@ export default function HomeScreen() {
   );
 
   const renderHeroBlock = () => (
-    <Animated.View entering={FadeInDown.duration(400)} style={styles.heroContainer}>
+    <Animated.View
+      entering={FadeInDown.duration(400)}
+      style={styles.heroContainer}
+    >
       <Card style={styles.heroCard}>
-        <ThemedText type="h3" style={styles.greeting}>
-          {greeting}
-        </ThemedText>
-        <ThemedText style={[styles.focusText, { color: theme.textSecondary }]}>
-          You are building: {focusLabel}
-        </ThemedText>
-        
-        <View style={styles.heroStats}>
-          <View style={styles.heroStat}>
-            <View style={[styles.heroStatIcon, { backgroundColor: `${theme.primary}20` }]}>
-              <Feather name="zap" size={20} color={theme.primary} />
-            </View>
-            <View>
-              <ThemedText style={styles.heroStatValue}>{totalStreak}</ThemedText>
-              <ThemedText style={[styles.heroStatLabel, { color: theme.textSecondary }]}>
-                total streak days
-              </ThemedText>
-            </View>
+        <View style={styles.greetingRow}>
+          <View style={{ flex: 1 }}>
+            <ThemedText type="h3" style={styles.greeting}>
+              {greeting}
+            </ThemedText>
+            <ThemedText
+              style={[styles.focusText, { color: theme.textSecondary }]}
+            >
+              Building: {focusLabel}
+            </ThemedText>
           </View>
-          
-          <View style={styles.heroStat}>
-            <View style={[styles.heroStatIcon, { backgroundColor: `${theme.success}20` }]}>
-              <Feather name="check-circle" size={20} color={theme.success} />
-            </View>
-            <View>
-              <ThemedText style={styles.heroStatValue}>
-                {checkedInToday}/{activeCommitments.length}
-              </ThemedText>
-              <ThemedText style={[styles.heroStatLabel, { color: theme.textSecondary }]}>
-                done today
-              </ThemedText>
-            </View>
+          <View
+            style={[
+              styles.streamlinedIcon,
+              { backgroundColor: `${theme.primary}15` },
+            ]}
+          >
+            <Feather name="target" size={24} color={theme.primary} />
+          </View>
+        </View>
+
+        <View
+          style={[
+            styles.metricsRow,
+            { borderTopColor: theme.border, borderBottomColor: theme.border },
+          ]}
+        >
+          <View style={styles.metricCard}>
+            <ThemedText style={[styles.metricValue, { color: theme.primary }]}>
+              {totalStreak}
+            </ThemedText>
+            <ThemedText
+              style={[styles.metricLabel, { color: theme.textSecondary }]}
+            >
+              streak days
+            </ThemedText>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+          <View style={styles.metricCard}>
+            <ThemedText style={[styles.metricValue, { color: theme.success }]}>
+              {checkedInToday}/{activeCommitments.length}
+            </ThemedText>
+            <ThemedText
+              style={[styles.metricLabel, { color: theme.textSecondary }]}
+            >
+              checked in
+            </ThemedText>
           </View>
         </View>
 
         {missedYesterday ? (
-          <View style={[styles.missedBanner, { backgroundColor: `${theme.warning}15` }]}>
-            <Feather name="alert-circle" size={16} color={theme.warning} />
-            <ThemedText style={[styles.missedText, { color: theme.warning }]}>
+          <View
+            style={[
+              styles.statusBanner,
+              {
+                backgroundColor: `${theme.warning}15`,
+                borderColor: `${theme.warning}30`,
+              },
+            ]}
+          >
+            <Feather
+              name="alert-circle"
+              size={16}
+              color={theme.warning}
+              style={{ marginRight: 8 }}
+            />
+            <ThemedText style={[{ color: theme.warning }]}>
               {copy.missedDay}
             </ThemedText>
           </View>
         ) : totalStreak > 0 ? (
-          <View style={[styles.motivationBanner, { backgroundColor: `${theme.primary}10` }]}>
-            <Feather name="trending-up" size={16} color={theme.primary} />
-            <ThemedText style={[styles.motivationText, { color: theme.primary }]}>
+          <View
+            style={[
+              styles.statusBanner,
+              {
+                backgroundColor: `${theme.success}15`,
+                borderColor: `${theme.success}30`,
+              },
+            ]}
+          >
+            <Feather
+              name="check-circle"
+              size={16}
+              color={theme.success}
+              style={{ marginRight: 8 }}
+            />
+            <ThemedText style={[{ color: theme.success }]}>
               {copy.streakGoing}
             </ThemedText>
           </View>
@@ -136,13 +194,27 @@ export default function HomeScreen() {
   );
 
   const renderSectionHeader = () => (
-    <View style={styles.sectionHeader}>
-      <ThemedText type="h4">Today's Commitments</ThemedText>
-      {checkedInToday === activeCommitments.length && activeCommitments.length > 0 ? (
-        <View style={[styles.completedBadge, { backgroundColor: `${theme.success}20` }]}>
-          <Feather name="check" size={14} color={theme.success} />
-          <ThemedText style={[styles.completedText, { color: theme.success }]}>
-            All done
+    <View style={[styles.sectionHeader, { borderBottomColor: theme.border }]}>
+      <Feather name="check-square" size={18} color={theme.primary} />
+      <ThemedText type="h4" style={{ flex: 1, marginLeft: Spacing.sm }}>
+        Today's Commitments
+      </ThemedText>
+      {checkedInToday === activeCommitments.length &&
+      activeCommitments.length > 0 ? (
+        <View
+          style={[
+            styles.completedBadge,
+            { backgroundColor: `${theme.success}20` },
+          ]}
+        >
+          <Feather name="check" size={12} color={theme.success} />
+          <ThemedText
+            style={[
+              styles.completedText,
+              { color: theme.success, marginLeft: 4 },
+            ]}
+          >
+            Perfect
           </ThemedText>
         </View>
       ) : null}
@@ -151,21 +223,37 @@ export default function HomeScreen() {
 
   const renderEmptyState = () => (
     <Animated.View entering={FadeInUp.delay(200)} style={styles.emptyContainer}>
-      <View style={[styles.emptyIcon, { backgroundColor: `${theme.primary}15` }]}>
-        <Feather name="target" size={48} color={theme.primary} />
+      <View
+        style={[styles.emptyIcon, { backgroundColor: `${theme.primary}15` }]}
+      >
+        <Feather name="plus-circle" size={56} color={theme.primary} />
       </View>
-      <ThemedText type="h4" style={styles.emptyTitle}>
+      <ThemedText
+        type="h4"
+        style={[styles.emptyTitle, { marginTop: Spacing.lg }]}
+      >
         No Commitments Yet
       </ThemedText>
-      <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
-        {copy.noStreak} Create your first commitment and begin building the version of you that shows up.
+      <ThemedText
+        style={[
+          styles.emptyText,
+          { color: theme.textSecondary, marginTop: Spacing.md },
+        ]}
+      >
+        Start by creating your first commitment. Pick something you want to
+        build daily.
       </ThemedText>
       <Pressable
-        style={[styles.emptyButton, { backgroundColor: theme.primary }]}
+        style={[
+          styles.emptyButton,
+          { backgroundColor: theme.primary, marginTop: Spacing.lg },
+        ]}
         onPress={handleCreateNew}
       >
-        <Feather name="plus" size={20} color="#fff" />
-        <ThemedText style={styles.emptyButtonText}>Create Your First</ThemedText>
+        <Feather name="plus" size={18} color="#fff" />
+        <ThemedText style={styles.emptyButtonText}>
+          Create First Commitment
+        </ThemedText>
       </Pressable>
     </Animated.View>
   );
@@ -248,60 +336,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: Spacing.lg,
   },
-  heroStats: {
+  greetingRow: {
     flexDirection: "row",
-    gap: Spacing.xl,
-    marginBottom: Spacing.md,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
   },
-  heroStat: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  heroStatIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  streamlinedIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
   },
-  heroStatValue: {
-    fontSize: 20,
-    fontWeight: "700",
+  metricsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.lg,
+    marginBottom: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
-  heroStatLabel: {
+  metricCard: {
+    flex: 1,
+    alignItems: "center",
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  metricLabel: {
     fontSize: 12,
   },
-  missedBanner: {
+  divider: {
+    width: 1,
+    height: 40,
+  },
+  statusBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
     padding: Spacing.md,
     borderRadius: BorderRadius.sm,
-    marginTop: Spacing.sm,
-  },
-  missedText: {
-    fontSize: 13,
-    flex: 1,
-  },
-  motivationBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginTop: Spacing.sm,
-  },
-  motivationText: {
-    fontSize: 13,
-    fontWeight: "500",
-    flex: 1,
+    borderWidth: 1,
+    marginTop: Spacing.md,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.md,
+    marginVertical: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
   },
   completedBadge: {
     flexDirection: "row",
@@ -327,15 +414,13 @@ const styles = StyleSheet.create({
     borderRadius: 48,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: Spacing.lg,
   },
   emptyTitle: {
     textAlign: "center",
-    marginBottom: Spacing.sm,
   },
   emptyText: {
     textAlign: "center",
-    marginBottom: Spacing.xl,
+    fontSize: 15,
     lineHeight: 22,
   },
   emptyButton: {

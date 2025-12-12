@@ -1,4 +1,8 @@
-import type { OnboardingPayload, HabitProfileSummary, CommitmentRecommendation } from "../../shared/onboardingTypes";
+import type {
+  OnboardingPayload,
+  HabitProfileSummary,
+  CommitmentRecommendation,
+} from "@/shared/onboardingTypes";
 
 export type OnboardingData = {
   completed: boolean;

@@ -22,7 +22,7 @@ export interface ObjectAclRule {
 export interface ObjectAclPolicy {
   owner: string;
   visibility: "public" | "private";
-  aclRules?: Array<ObjectAclRule>;
+  aclRules?: ObjectAclRule[];
 }
 
 function isPermissionAllowed(

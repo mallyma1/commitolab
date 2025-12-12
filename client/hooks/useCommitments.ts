@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface Commitment {
@@ -37,15 +37,24 @@ export function useCommitments() {
     queryKey: ["/api/commitments"],
     queryFn: async () => {
       if (!user) return [];
+      const startTime = performance.now();
       const url = new URL("/api/commitments", baseUrl);
       const response = await fetch(url, {
         headers: { "x-session-id": user.id },
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch commitments");
-      return response.json();
+      const data = await response.json();
+      const duration = performance.now() - startTime;
+      console.debug(
+        `[fetch] /api/commitments: ${duration.toFixed(0)}ms, ${data.length} items`
+      );
+      return data;
     },
     enabled: !!user,
+    staleTime: 60 * 1000, // 1 minute - commitments change rarely
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 }
 
@@ -56,15 +65,20 @@ export function useCommitment(id: string) {
   return useQuery<Commitment>({
     queryKey: ["/api/commitments", id],
     queryFn: async () => {
+      const startTime = performance.now();
       const url = new URL(`/api/commitments/${id}`, baseUrl);
       const response = await fetch(url, {
         headers: { "x-session-id": user?.id || "" },
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch commitment");
-      return response.json();
+      const data = await response.json();
+      const duration = performance.now() - startTime;
+      console.debug(`[fetch] /api/commitments/${id}: ${duration.toFixed(0)}ms`);
+      return data;
     },
     enabled: !!user && !!id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 
@@ -111,15 +125,25 @@ export function useCheckIns(commitmentId: string) {
   return useQuery<CheckIn[]>({
     queryKey: ["/api/commitments", commitmentId, "check-ins"],
     queryFn: async () => {
-      const url = new URL(`/api/commitments/${commitmentId}/check-ins`, baseUrl);
+      const startTime = performance.now();
+      const url = new URL(
+        `/api/commitments/${commitmentId}/check-ins`,
+        baseUrl
+      );
       const response = await fetch(url, {
         headers: { "x-session-id": user?.id || "" },
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch check-ins");
-      return response.json();
+      const data = await response.json();
+      const duration = performance.now() - startTime;
+      console.debug(
+        `[fetch] /api/commitments/${commitmentId}/check-ins: ${duration.toFixed(0)}ms, ${data.length} items`
+      );
+      return data;
     },
     enabled: !!user && !!commitmentId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
@@ -139,15 +163,23 @@ export function useAnalytics() {
   return useQuery<AnalyticsData>({
     queryKey: ["/api/analytics"],
     queryFn: async () => {
+      const startTime = performance.now();
       const url = new URL("/api/analytics", baseUrl);
       const response = await fetch(url, {
         headers: { "x-session-id": user?.id || "" },
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch analytics");
-      return response.json();
+      const data = await response.json();
+      const duration = performance.now() - startTime;
+      console.debug(`[fetch] /api/analytics: ${duration.toFixed(0)}ms`);
+      return data;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes - stats don't change frequently
+    refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch when component remounts
+    retry: 1, // Only retry once for non-critical data
   });
 }
 
@@ -158,15 +190,23 @@ export function useTodayCheckIns() {
   return useQuery<CheckIn[]>({
     queryKey: ["/api/check-ins/today"],
     queryFn: async () => {
+      const startTime = performance.now();
       const url = new URL("/api/check-ins/today", baseUrl);
       const response = await fetch(url, {
         headers: { "x-session-id": user?.id || "" },
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch today's check-ins");
-      return response.json();
+      const data = await response.json();
+      const duration = performance.now() - startTime;
+      console.debug(
+        `[fetch] /api/check-ins/today: ${duration.toFixed(0)}ms, ${data.length} items`
+      );
+      return data;
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes - check-ins for today don't change often
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -195,15 +235,23 @@ export function useCreateCheckIn() {
       return response.json();
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/commitments"] });
+      // Only invalidate directly affected queries
       queryClient.invalidateQueries({
-        queryKey: ["/api/commitments", variables.commitmentId],
+        queryKey: ["/api/check-ins/today"],
       });
       queryClient.invalidateQueries({
         queryKey: ["/api/commitments", variables.commitmentId, "check-ins"],
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/check-ins/today"] });
+      // Only invalidate the specific commitment if it's cached
+      const commitmentsCached = queryClient.getQueryData(["/api/commitments"]);
+      if (commitmentsCached) {
+        queryClient.invalidateQueries({ queryKey: ["/api/commitments"] });
+      }
+      // Lazy invalidate analytics - will refetch next time it's accessed
+      queryClient.invalidateQueries(
+        { queryKey: ["/api/analytics"], exact: true },
+        { cancelRefetch: true } // Don't cancel if already refetching
+      );
     },
   });
 }

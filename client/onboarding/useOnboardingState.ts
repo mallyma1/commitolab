@@ -4,7 +4,132 @@ import type {
   OnboardingPayload,
   HabitProfileSummary,
   CommitmentRecommendation,
-} from "../../shared/onboardingTypes";
+} from "@/shared/onboardingTypes";
+
+type AiStatus = "idle" | "running" | "ready" | "failed";
+const AI_TIMEOUT_MS = 10000; // Reduced from 12s to 10s after backend optimizations
+
+/**
+ * Onboarding data flow (critical vs optional)
+ * - Critical before showing UI: local fast profile + recommendations computed synchronously from payload
+ * - Background/optional: POST /api/onboarding/summary (AI) -> POST /api/onboarding/recommendations (AI) to polish copy
+ *
+ * First app load after auth
+ * - Essential before home renders: GET /api/commitments, GET /api/check-ins/today
+ * - Deferred/optional after home renders: analytics, AI coaching, dopamine lab data (none block navigation)
+ */
+
+function normalizePayload(payload: OnboardingPayload): OnboardingPayload {
+  return {
+    ...payload,
+    focus_domains: payload.focus_domains ?? payload.focusDomains ?? [],
+    reward_style: payload.reward_style ?? payload.rewardStyle ?? [],
+    change_style: payload.change_style ?? payload.changeStyle ?? "",
+    primary_goal_category:
+      payload.primary_goal_category ?? payload.focusDomains?.[0],
+    preferred_cadence: payload.preferred_cadence ?? payload.accountabilityLevel,
+  };
+}
+
+function buildFastSummary(payload: OnboardingPayload): HabitProfileSummary {
+  const focusArea = payload.focus_domains?.[0] || "personal growth";
+  const style = payload.change_style || "steady";
+  return {
+    profile_name:
+      style === "intensive"
+        ? "Focused Achiever"
+        : style === "micro"
+          ? "Steady Builder"
+          : "Balanced Practitioner",
+    strengths: [
+      "You have self-awareness about your patterns",
+      "You are motivated to make positive changes",
+      `You have clear focus on ${focusArea}`,
+    ],
+    risk_zones: [
+      "Taking on too much at once can lead to burnout",
+      "Inconsistent environments may disrupt routines",
+      "High expectations without flexibility can cause setbacks",
+    ],
+    best_practices: [
+      "Start with one small commitment and build from there",
+      "Track your progress daily to stay accountable",
+      "Adjust your approach when something is not working",
+    ],
+  };
+}
+
+function buildFastRecommendations(payload: OnboardingPayload): {
+  commitments: CommitmentRecommendation[];
+} {
+  const focusArea = payload.focus_domains?.[0] || "wellness";
+  const style = payload.change_style || "steady";
+
+  const baseCommitments: CommitmentRecommendation[] = [
+    {
+      title: "Morning Check-in",
+      short_description:
+        "Start your day with intention by reviewing your goals",
+      cadence: "daily",
+      proof_mode: "tick_only",
+      reason: "Building awareness of daily priorities helps maintain focus",
+    },
+    {
+      title: "Evening Reflection",
+      short_description: "Take 5 minutes to note what went well today",
+      cadence: "daily",
+      proof_mode: "tick_only",
+      reason: "Reflecting on progress reinforces positive habits",
+    },
+    {
+      title: "Weekly Review",
+      short_description: "Review your week and plan the next one",
+      cadence: "weekly",
+      proof_mode: "tick_only",
+      reason: "Regular reviews help you stay on track with larger goals",
+    },
+  ];
+
+  if (focusArea === "fitness" || focusArea === "health") {
+    baseCommitments.unshift({
+      title: "Movement Break",
+      short_description: "Get up and move for at least 10 minutes",
+      cadence: "daily",
+      proof_mode: "tick_only",
+      reason: "Regular movement improves energy and focus throughout the day",
+    });
+  }
+
+  if (style === "micro") {
+    return { commitments: baseCommitments.slice(0, 2) };
+  }
+
+  return { commitments: baseCommitments };
+}
+
+async function fetchWithTimeout(
+  url: URL,
+  options: RequestInit,
+  timeoutMs = AI_TIMEOUT_MS
+) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url.toString(), {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } catch (err: any) {
+    if (err?.name === "AbortError") {
+      throw new Error("Request timed out");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export function useOnboardingState() {
   const [payload, setPayload] = useState<OnboardingPayload>({
@@ -20,10 +145,19 @@ export function useOnboardingState() {
   });
 
   const [summary, setSummary] = useState<HabitProfileSummary | null>(null);
+  const [summarySource, setSummarySource] = useState<
+    "none" | "fallback" | "server"
+  >("none");
   const [recommendations, setRecommendations] = useState<
     CommitmentRecommendation[]
   >([]);
+  const [recommendationsSource, setRecommendationsSource] = useState<
+    "none" | "fallback" | "server"
+  >("none");
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<AiStatus>("idle");
+  const [aiTimedOut, setAiTimedOut] = useState(false);
+  const [aiDurationMs, setAiDurationMs] = useState<number | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const prefetchStartedRef = useRef(false);
 
@@ -37,37 +171,91 @@ export function useOnboardingState() {
   const prefetchAI = useCallback(async (currentPayload: OnboardingPayload) => {
     if (prefetchStartedRef.current) return;
     prefetchStartedRef.current = true;
-    
+
+    const normalizedPayload = normalizePayload(currentPayload);
+    const fastSummary = buildFastSummary(normalizedPayload);
+    const fastRecs = buildFastRecommendations(normalizedPayload);
+
+    // Immediate UI update with fallback
+    setSummary(fastSummary);
+    setSummarySource("fallback");
+    setRecommendations(fastRecs.commitments);
+    setRecommendationsSource("fallback");
+
     setAiLoading(true);
+    setAiStatus("running");
+    setAiTimedOut(false);
+    setAiDurationMs(null);
     setAiError(null);
-    
+
+    const startedAt = Date.now();
+    let loggedSummarySource: "fallback" | "server" = "fallback";
+    console.debug(
+      "[onboarding] prefetch start - fast profile ready immediately"
+    );
+
     try {
       const summaryUrl = new URL("/api/onboarding/summary", getApiUrl());
-      const summaryRes = await fetch(summaryUrl.toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(currentPayload),
-      });
-      
+      const summaryRes = await fetchWithTimeout(
+        summaryUrl,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(normalizedPayload),
+        },
+        AI_TIMEOUT_MS
+      );
+
       if (!summaryRes.ok) throw new Error("Failed to fetch summary");
-      const summaryData = await summaryRes.json() as HabitProfileSummary;
+      const summaryData = (await summaryRes.json()) as HabitProfileSummary;
       setSummary(summaryData);
-      
+      setSummarySource("server");
+      loggedSummarySource = "server";
+
       const recsUrl = new URL("/api/onboarding/recommendations", getApiUrl());
-      const recsRes = await fetch(recsUrl.toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payload: currentPayload, summary: summaryData }),
-      });
-      
+      const recsRes = await fetchWithTimeout(
+        recsUrl,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            payload: normalizedPayload,
+            summary: summaryData,
+          }),
+        },
+        AI_TIMEOUT_MS
+      );
+
       if (!recsRes.ok) throw new Error("Failed to fetch recommendations");
-      const recsData = await recsRes.json() as { commitments: CommitmentRecommendation[] };
+      const recsData = (await recsRes.json()) as {
+        commitments: CommitmentRecommendation[];
+      };
       setRecommendations(recsData.commitments);
+      setRecommendationsSource("server");
+      setAiStatus("ready");
+      const duration = Date.now() - startedAt;
+      console.debug(
+        `[onboarding] AI refinement complete: ${duration}ms, source: ${loggedSummarySource}`
+      );
     } catch (e: any) {
-      console.error("AI prefetch error:", e);
-      setAiError(e.message || "Failed to generate profile");
+      const timedOut = e?.message === "Request timed out";
+      setAiTimedOut(timedOut);
+      setAiStatus("failed");
+      setAiError(
+        timedOut
+          ? "This took too long. Using the quick profile for now."
+          : e?.message || "Failed to generate profile"
+      );
+      const duration = Date.now() - startedAt;
+      console.warn(`[onboarding] AI failed after ${duration}ms:`, {
+        timedOut,
+        message: e?.message,
+      });
     } finally {
+      const duration = Date.now() - startedAt;
+      setAiDurationMs(duration);
       setAiLoading(false);
+      prefetchStartedRef.current = false;
     }
   }, []);
 
@@ -76,10 +264,20 @@ export function useOnboardingState() {
     update,
     summary,
     setSummary,
+    summarySource,
     recommendations,
     setRecommendations,
+    recommendationsSource,
     aiLoading,
+    aiStatus,
+    aiTimedOut,
+    aiDurationMs,
     aiError,
     prefetchAI,
   };
 }
+
+// Test plan (dev):
+// - Simulate slow AI: set SIMULATE_AI_DELAY_MS (server env) to 8000–12000 and verify Summary shows immediately with "Finishing with AI" banner.
+// - Confirm home screen renders within ~1–3s on warm backend: onboarding -> auth -> Main should show commitments list (or empty state) while analytics or AI coaching can still be loading.
+// - Timeout path: force latency > AI_TIMEOUT_MS and check that the timeout banner appears but navigation continues and recommendations are available from the quick set.

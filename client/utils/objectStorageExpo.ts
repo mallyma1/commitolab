@@ -1,16 +1,16 @@
-import { File } from 'expo-file-system';
-import { fetch } from 'expo/fetch';
-import { getApiUrl } from '@/lib/query-client';
+import { File } from "expo-file-system";
+import { fetch } from "expo/fetch";
+import { getApiUrl } from "@/lib/query-client";
 
 export async function uploadFileToStorage(
   file: File,
-  getUploadUrlEndpoint: string = '/api/objects/upload',
+  getUploadUrlEndpoint: string = "/api/objects/upload"
 ): Promise<string> {
   const apiUrl = getApiUrl();
   const uploadUrlEndpoint = new URL(getUploadUrlEndpoint, apiUrl).toString();
   const presignedUrlResponse = await fetch(uploadUrlEndpoint, {
-    method: 'POST',
-    credentials: 'include',
+    method: "POST",
+    credentials: "include",
   });
 
   if (!presignedUrlResponse.ok) {
@@ -21,14 +21,14 @@ export async function uploadFileToStorage(
 
   const { uploadURL } = await presignedUrlResponse.json();
   if (!uploadURL) {
-    throw new Error('No uploadURL returned from server');
+    throw new Error("No uploadURL returned from server");
   }
-  
+
   const uploadResponse = await fetch(uploadURL.toString(), {
-    method: 'PUT',
+    method: "PUT",
     body: file,
     headers: {
-      'Content-Type': file.type || 'application/octet-stream',
+      "Content-Type": file.type || "application/octet-stream",
     },
   });
 

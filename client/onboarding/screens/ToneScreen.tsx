@@ -21,8 +21,16 @@ const toneOptions = [
 
 const accountabilityOptions = [
   { id: "light", label: "Light", description: "Gentle reminders, no pressure" },
-  { id: "moderate", label: "Moderate", description: "Clear nudges, some pushback on excuses" },
-  { id: "strict", label: "Strict", description: "Call me out when I slip, no hand-holding" },
+  {
+    id: "moderate",
+    label: "Moderate",
+    description: "Clear nudges, some pushback on excuses",
+  },
+  {
+    id: "strict",
+    label: "Strict",
+    description: "Call me out when I slip, no hand-holding",
+  },
 ];
 
 export function ToneScreen({ navigation }: Props) {
@@ -31,15 +39,20 @@ export function ToneScreen({ navigation }: Props) {
   const { payload, update, prefetchAI } = useOnboardingContext();
 
   const toggleTone = (tone: string) => {
-    const current = payload.tonePreferences;
+    const current = payload.tonePreferences ?? [];
     if (current.includes(tone)) {
-      update("tonePreferences", current.filter((t) => t !== tone));
+      update(
+        "tonePreferences",
+        current.filter((t: string) => t !== tone)
+      );
     } else if (current.length < 2) {
       update("tonePreferences", [...current, tone]);
     }
   };
 
-  const canContinue = payload.tonePreferences.length >= 1 && !!payload.accountabilityLevel;
+  const canContinue =
+    (payload.tonePreferences?.length ?? 0) >= 1 &&
+    !!payload.accountabilityLevel;
 
   return (
     <View
@@ -52,7 +65,10 @@ export function ToneScreen({ navigation }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
@@ -64,7 +80,7 @@ export function ToneScreen({ navigation }: Props) {
 
         <View style={styles.chipGrid}>
           {toneOptions.map((tone) => {
-            const selected = payload.tonePreferences.includes(tone.id);
+            const selected = (payload.tonePreferences ?? []).includes(tone.id);
             return (
               <Pressable
                 key={tone.id}
@@ -72,15 +88,24 @@ export function ToneScreen({ navigation }: Props) {
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: selected ? theme.primary + "20" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "20"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
               >
-                <ThemedText style={[styles.chipText, selected ? { color: theme.primary } : null]}>
+                <ThemedText
+                  style={[
+                    styles.chipText,
+                    selected ? { color: theme.primary } : null,
+                  ]}
+                >
                   {tone.label}
                 </ThemedText>
-                {selected ? <Feather name="check" size={14} color={theme.primary} /> : null}
+                {selected ? (
+                  <Feather name="check" size={14} color={theme.primary} />
+                ) : null}
               </Pressable>
             );
           })}
@@ -96,23 +121,34 @@ export function ToneScreen({ navigation }: Props) {
             return (
               <Pressable
                 key={option.id}
-                onPress={() => update("accountabilityLevel", option.id)}
+                onPress={() => update("accountabilityLevel", option.id as any)}
                 style={[
                   styles.optionCard,
                   {
-                    backgroundColor: selected ? theme.primary + "15" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "15"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
               >
                 <View style={styles.optionContent}>
-                  <ThemedText style={styles.optionLabel}>{option.label}</ThemedText>
-                  <ThemedText style={[styles.optionDesc, { color: theme.textSecondary }]}>
+                  <ThemedText style={styles.optionLabel}>
+                    {option.label}
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.optionDesc, { color: theme.textSecondary }]}
+                  >
                     {option.description}
                   </ThemedText>
                 </View>
                 {selected ? (
-                  <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
+                  <View
+                    style={[
+                      styles.checkBadge,
+                      { backgroundColor: theme.primary },
+                    ]}
+                  >
                     <Feather name="check" size={14} color="#fff" />
                   </View>
                 ) : null}
@@ -139,7 +175,9 @@ export function ToneScreen({ navigation }: Props) {
             }}
             disabled={!canContinue}
           >
-            <ThemedText style={styles.continueButtonText}>Generate My Profile</ThemedText>
+            <ThemedText style={styles.continueButtonText}>
+              Generate My Profile
+            </ThemedText>
           </Pressable>
         </View>
       </ScrollView>

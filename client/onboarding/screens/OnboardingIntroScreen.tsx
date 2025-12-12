@@ -30,14 +30,12 @@ export function OnboardingIntroScreen({ navigation }: Props) {
           Build the version of you that shows up.
         </ThemedText>
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-          This is not a habit tracker. It is a commitment system that learns how you tick, then designs realistic streaks around your life.
+          This is not a habit tracker. It is a commitment system that learns how
+          you tick, then designs realistic streaks around your life.
         </ThemedText>
 
         <View style={styles.promises}>
-          <PromiseItem
-            icon="clock"
-            text="Takes about 3 minutes."
-          />
+          <PromiseItem icon="clock" text="Takes about 3 minutes." />
           <PromiseItem
             icon="shield"
             text="No judgement. We are here to understand, not to diagnose."
@@ -60,12 +58,20 @@ export function OnboardingIntroScreen({ navigation }: Props) {
   );
 }
 
-function PromiseItem({ icon, text }: { icon: keyof typeof Feather.glyphMap; text: string }) {
+function PromiseItem({
+  icon,
+  text,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  text: string;
+}) {
   const { theme } = useTheme();
 
   return (
     <View style={styles.promiseRow}>
-      <View style={[styles.promiseIcon, { backgroundColor: theme.primary + "20" }]}>
+      <View
+        style={[styles.promiseIcon, { backgroundColor: theme.primary + "20" }]}
+      >
         <Feather name={icon} size={16} color={theme.primary} />
       </View>
       <ThemedText style={[styles.promiseText, { color: theme.textSecondary }]}>

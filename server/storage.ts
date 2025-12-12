@@ -26,13 +26,19 @@ export interface IStorage {
   getUserByPhone(phone: string): Promise<User | undefined>;
   createUser(insertUser: InsertUser): Promise<User>;
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
-  updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined>;
+  updateUserProfile(
+    id: string,
+    data: UpdateUserProfile,
+  ): Promise<User | undefined>;
   deleteUser(id: string): Promise<void>;
 
   getCommitments(userId: string): Promise<Commitment[]>;
   getCommitment(id: string): Promise<Commitment | undefined>;
   createCommitment(userId: string, data: InsertCommitment): Promise<Commitment>;
-  updateCommitment(id: string, data: Partial<Commitment>): Promise<Commitment | undefined>;
+  updateCommitment(
+    id: string,
+    data: Partial<Commitment>,
+  ): Promise<Commitment | undefined>;
   deleteCommitment(id: string): Promise<void>;
 
   getCheckIns(commitmentId: string): Promise<CheckIn[]>;
@@ -40,13 +46,24 @@ export interface IStorage {
   createCheckIn(userId: string, data: InsertCheckIn): Promise<CheckIn>;
   getTodayCheckIns(userId: string, today: string): Promise<CheckIn[]>;
 
-  getDopamineEntry(userId: string, date: string): Promise<DopamineEntry | undefined>;
+  getDopamineEntry(
+    userId: string,
+    date: string,
+  ): Promise<DopamineEntry | undefined>;
   getDopamineEntries(userId: string, limit?: number): Promise<DopamineEntry[]>;
-  upsertDopamineEntry(userId: string, data: InsertDopamineEntry): Promise<DopamineEntry>;
+  upsertDopamineEntry(
+    userId: string,
+    data: InsertDopamineEntry,
+  ): Promise<DopamineEntry>;
 
   getRandomStoicQuote(tags?: string[]): Promise<StoicQuote | undefined>;
 
-  savePushToken(userId: string, token: string, platform?: string, deviceId?: string): Promise<PushToken>;
+  savePushToken(
+    userId: string,
+    token: string,
+    platform?: string,
+    deviceId?: string,
+  ): Promise<PushToken>;
   getPushTokens(userId: string): Promise<PushToken[]>;
   getAllActivePushTokens(): Promise<PushToken[]>;
   deactivatePushToken(token: string): Promise<void>;
@@ -73,7 +90,10 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUser(
+    id: string,
+    data: Partial<InsertUser>,
+  ): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set(data)
@@ -82,7 +102,10 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async updateUserProfile(id: string, data: UpdateUserProfile): Promise<User | undefined> {
+  async updateUserProfile(
+    id: string,
+    data: UpdateUserProfile,
+  ): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set(data)
@@ -93,7 +116,9 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     await db.delete(pushTokens).where(eq(pushTokens.userId, id));
-    await db.delete(dopamineChecklistEntries).where(eq(dopamineChecklistEntries.userId, id));
+    await db
+      .delete(dopamineChecklistEntries)
+      .where(eq(dopamineChecklistEntries.userId, id));
     await db.delete(checkIns).where(eq(checkIns.userId, id));
     await db.delete(commitments).where(eq(commitments.userId, id));
     await db.delete(users).where(eq(users.id, id));
@@ -114,7 +139,7 @@ export class DatabaseStorage implements IStorage {
       primaryGoalCategory?: string;
       primaryGoalReason?: string;
       preferredCadence?: string;
-    }
+    },
   ): Promise<User | undefined> {
     const [user] = await db
       .update(users)
@@ -143,7 +168,10 @@ export class DatabaseStorage implements IStorage {
     return commitment || undefined;
   }
 
-  async createCommitment(userId: string, data: InsertCommitment): Promise<Commitment> {
+  async createCommitment(
+    userId: string,
+    data: InsertCommitment,
+  ): Promise<Commitment> {
     const [commitment] = await db
       .insert(commitments)
       .values({ ...data, userId })
@@ -153,7 +181,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateCommitment(
     id: string,
-    data: Partial<Commitment>
+    data: Partial<Commitment>,
   ): Promise<Commitment | undefined> {
     const [commitment] = await db
       .update(commitments)
@@ -196,7 +224,7 @@ export class DatabaseStorage implements IStorage {
   async getTodayCheckIns(userId: string, today: string): Promise<CheckIn[]> {
     const startOfDay = new Date(today + "T00:00:00.000Z");
     const endOfDay = new Date(today + "T23:59:59.999Z");
-    
+
     return db
       .select()
       .from(checkIns)
@@ -204,26 +232,40 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(checkIns.userId, userId),
           gte(checkIns.createdAt, startOfDay),
-          lt(checkIns.createdAt, endOfDay)
-        )
+          lt(checkIns.createdAt, endOfDay),
+        ),
       )
       .orderBy(desc(checkIns.createdAt));
   }
 
-  async getDopamineEntry(userId: string, date: string): Promise<DopamineEntry | undefined> {
+  async getUserCheckIns(userId: string): Promise<CheckIn[]> {
+    return db
+      .select()
+      .from(checkIns)
+      .where(eq(checkIns.userId, userId))
+      .orderBy(desc(checkIns.createdAt));
+  }
+
+  async getDopamineEntry(
+    userId: string,
+    date: string,
+  ): Promise<DopamineEntry | undefined> {
     const [entry] = await db
       .select()
       .from(dopamineChecklistEntries)
       .where(
         and(
           eq(dopamineChecklistEntries.userId, userId),
-          eq(dopamineChecklistEntries.date, date)
-        )
+          eq(dopamineChecklistEntries.date, date),
+        ),
       );
     return entry || undefined;
   }
 
-  async getDopamineEntries(userId: string, limit: number = 30): Promise<DopamineEntry[]> {
+  async getDopamineEntries(
+    userId: string,
+    limit: number = 30,
+  ): Promise<DopamineEntry[]> {
     return db
       .select()
       .from(dopamineChecklistEntries)
@@ -232,9 +274,12 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async upsertDopamineEntry(userId: string, data: InsertDopamineEntry): Promise<DopamineEntry> {
+  async upsertDopamineEntry(
+    userId: string,
+    data: InsertDopamineEntry,
+  ): Promise<DopamineEntry> {
     const existing = await this.getDopamineEntry(userId, data.date as string);
-    
+
     if (existing) {
       const [entry] = await db
         .update(dopamineChecklistEntries)
@@ -243,7 +288,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return entry;
     }
-    
+
     const [entry] = await db
       .insert(dopamineChecklistEntries)
       .values({ ...data, userId })
@@ -251,7 +296,7 @@ export class DatabaseStorage implements IStorage {
     return entry;
   }
 
-  async getRandomStoicQuote(tags?: string[]): Promise<StoicQuote | undefined> {
+  async getRandomStoicQuote(_tags?: string[]): Promise<StoicQuote | undefined> {
     const [quote] = await db
       .select()
       .from(stoicQuotes)
@@ -266,7 +311,7 @@ export class DatabaseStorage implements IStorage {
       stripeCustomerId?: string;
       stripeSubscriptionId?: string;
       plan?: string;
-    }
+    },
   ): Promise<User | undefined> {
     const [user] = await db
       .update(users)
@@ -276,7 +321,12 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async savePushToken(userId: string, token: string, platform?: string, deviceId?: string): Promise<PushToken> {
+  async savePushToken(
+    userId: string,
+    token: string,
+    platform?: string,
+    deviceId?: string,
+  ): Promise<PushToken> {
     const existing = await db
       .select()
       .from(pushTokens)
@@ -285,7 +335,13 @@ export class DatabaseStorage implements IStorage {
     if (existing.length > 0) {
       const [updated] = await db
         .update(pushTokens)
-        .set({ userId, platform, deviceId, active: true, updatedAt: new Date() })
+        .set({
+          userId,
+          platform,
+          deviceId,
+          active: true,
+          updatedAt: new Date(),
+        })
         .where(eq(pushTokens.token, token))
         .returning();
       return updated;
@@ -306,10 +362,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllActivePushTokens(): Promise<PushToken[]> {
-    return db
-      .select()
-      .from(pushTokens)
-      .where(eq(pushTokens.active, true));
+    return db.select().from(pushTokens).where(eq(pushTokens.active, true));
   }
 
   async deactivatePushToken(token: string): Promise<void> {

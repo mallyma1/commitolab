@@ -12,25 +12,25 @@ type Props = {
 };
 
 const roleOptions = [
-  "Parent",
-  "Founder / entrepreneur",
-  "Employee",
-  "Student",
-  "Carer",
-  "Freelancer / self-employed",
-  "Retired",
-  "Looking for work",
+  { id: "parent", label: "Parent" },
+  { id: "founder", label: "Founder / entrepreneur" },
+  { id: "employee", label: "Employee" },
+  { id: "student", label: "Student" },
+  { id: "carer", label: "Carer" },
+  { id: "freelancer", label: "Freelancer / self-employed" },
+  { id: "retired", label: "Retired" },
+  { id: "looking_for_work", label: "Looking for work" },
 ];
 
 const pressureOptions = [
-  "Raising small children",
-  "Caring for aging parents",
-  "Long work hours",
-  "Irregular schedule",
-  "Financial stress",
-  "Health challenges",
-  "Relationship transitions",
-  "None of these apply",
+  { id: "children", label: "Raising small children" },
+  { id: "aging_parents", label: "Caring for aging parents" },
+  { id: "work_hours", label: "Long work hours" },
+  { id: "irregular_schedule", label: "Irregular schedule" },
+  { id: "financial_stress", label: "Financial stress" },
+  { id: "health_challenges", label: "Health challenges" },
+  { id: "relationship_transitions", label: "Relationship transitions" },
+  { id: "none", label: "None of these apply" },
 ];
 
 export function RolesScreen({ navigation }: Props) {
@@ -39,24 +39,30 @@ export function RolesScreen({ navigation }: Props) {
   const { payload, update } = useOnboardingContext();
 
   const toggleRole = (role: string) => {
-    const current = payload.roles;
+    const current = payload.roles ?? [];
     if (current.includes(role)) {
-      update("roles", current.filter((r) => r !== role));
+      update(
+        "roles",
+        current.filter((r: string) => r !== role)
+      );
     } else {
       update("roles", [...current, role]);
     }
   };
 
   const togglePressure = (pressure: string) => {
-    const current = payload.pressures;
+    const current = payload.pressures ?? [];
     if (current.includes(pressure)) {
-      update("pressures", current.filter((p) => p !== pressure));
+      update(
+        "pressures",
+        current.filter((p: string) => p !== pressure)
+      );
     } else {
       update("pressures", [...current, pressure]);
     }
   };
 
-  const canContinue = payload.roles.length > 0;
+  const canContinue = (payload.roles?.length ?? 0) > 0;
 
   return (
     <View
@@ -69,35 +75,48 @@ export function RolesScreen({ navigation }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
           What roles do you hold in life right now?
         </ThemedText>
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-          Select all that apply. This helps us calibrate how much capacity you realistically have.
+          Select all that apply. This helps us calibrate how much capacity you
+          realistically have.
         </ThemedText>
 
         <View style={styles.chipGrid}>
           {roleOptions.map((role) => {
-            const selected = payload.roles.includes(role);
+            const selected = (payload.roles ?? []).includes(role.id);
             return (
               <Pressable
-                key={role}
-                onPress={() => toggleRole(role)}
+                key={role.id}
+                onPress={() => toggleRole(role.id)}
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: selected ? theme.primary + "20" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "20"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
               >
-                <ThemedText style={[styles.chipText, selected ? { color: theme.primary } : null]}>
-                  {role}
+                <ThemedText
+                  style={[
+                    styles.chipText,
+                    selected ? { color: theme.primary } : null,
+                  ]}
+                >
+                  {role.label}
                 </ThemedText>
-                {selected ? <Feather name="check" size={14} color={theme.primary} /> : null}
+                {selected ? (
+                  <Feather name="check" size={14} color={theme.primary} />
+                ) : null}
               </Pressable>
             );
           })}
@@ -112,21 +131,28 @@ export function RolesScreen({ navigation }: Props) {
 
         <View style={[styles.chipGrid, { marginTop: Spacing.md }]}>
           {pressureOptions.map((pressure) => {
-            const selected = payload.pressures.includes(pressure);
+            const selected = (payload.pressures ?? []).includes(pressure.id);
             return (
               <Pressable
-                key={pressure}
-                onPress={() => togglePressure(pressure)}
+                key={pressure.id}
+                onPress={() => togglePressure(pressure.id)}
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: selected ? theme.primary + "20" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "20"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
               >
-                <ThemedText style={[styles.chipText, selected ? { color: theme.primary } : null]}>
-                  {pressure}
+                <ThemedText
+                  style={[
+                    styles.chipText,
+                    selected ? { color: theme.primary } : null,
+                  ]}
+                >
+                  {pressure.label}
                 </ThemedText>
               </Pressable>
             );

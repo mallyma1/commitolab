@@ -6,7 +6,11 @@ import {
   ScrollView,
   TextInput,
 } from "react-native";
-import Animated, { FadeIn, SlideInRight, SlideOutLeft } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  SlideInRight,
+  SlideOutLeft,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -25,16 +29,40 @@ import { useCreateCommitment } from "@/hooks/useCommitments";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 const PROOF_MODES = [
-  { id: "none", label: "No proof needed", description: "Just confirm completion" },
-  { id: "note_only", label: "Note required", description: "Write a reflection" },
-  { id: "photo_optional", label: "Photo optional", description: "Add visual proof if you want" },
-  { id: "photo_required", label: "Photo required", description: "Build identity through visible proof" },
+  {
+    id: "none",
+    label: "No proof needed",
+    description: "Just confirm completion",
+  },
+  {
+    id: "note_only",
+    label: "Note required",
+    description: "Write a reflection",
+  },
+  {
+    id: "photo_optional",
+    label: "Photo optional",
+    description: "Add visual proof if you want",
+  },
+  {
+    id: "photo_required",
+    label: "Photo required",
+    description: "Build identity through visible proof",
+  },
 ];
 
 const ACCOUNTABILITY_LEVELS = [
   { id: "soft", label: "Soft", description: "Gentle reminders, flexible" },
-  { id: "standard", label: "Standard", description: "Regular check-ins, balanced" },
-  { id: "strict", label: "Strict", description: "Strong accountability, no excuses" },
+  {
+    id: "standard",
+    label: "Standard",
+    description: "Regular check-ins, balanced",
+  },
+  {
+    id: "strict",
+    label: "Strict",
+    description: "Strong accountability, no excuses",
+  },
 ];
 
 const CADENCES = [
@@ -129,7 +157,9 @@ export default function CommitmentWizardScreen() {
       : new Date(today.getTime() + 86400000).toISOString().split("T")[0];
     const endDate = new Date(
       new Date(startDate).getTime() + data.duration * 86400000
-    ).toISOString().split("T")[0];
+    )
+      .toISOString()
+      .split("T")[0];
 
     try {
       await createCommitment.mutateAsync({
@@ -173,7 +203,9 @@ export default function CommitmentWizardScreen() {
             <ThemedText type="h3" style={styles.stepTitle}>
               Choose your streak
             </ThemedText>
-            <ThemedText style={[styles.stepSubtitle, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.stepSubtitle, { color: theme.textSecondary }]}
+            >
               Based on your profile, we recommend these:
             </ThemedText>
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -183,7 +215,10 @@ export default function CommitmentWizardScreen() {
                     key={template.id}
                     style={[
                       styles.templateCard,
-                      { backgroundColor: theme.backgroundSecondary, borderColor: theme.border },
+                      {
+                        backgroundColor: theme.backgroundSecondary,
+                        borderColor: theme.border,
+                      },
                     ]}
                     onPress={() => handleSelectTemplate(template)}
                   >
@@ -191,14 +226,27 @@ export default function CommitmentWizardScreen() {
                       {template.title}
                     </ThemedText>
                     <ThemedText
-                      style={[styles.templateDesc, { color: theme.textSecondary }]}
+                      style={[
+                        styles.templateDesc,
+                        { color: theme.textSecondary },
+                      ]}
                       numberOfLines={2}
                     >
                       {template.description}
                     </ThemedText>
                     <View style={styles.templateMeta}>
-                      <View style={[styles.tag, { backgroundColor: `${EarthyColors.forestGreen}20` }]}>
-                        <ThemedText style={[styles.tagText, { color: EarthyColors.forestGreen }]}>
+                      <View
+                        style={[
+                          styles.tag,
+                          { backgroundColor: `${EarthyColors.forestGreen}20` },
+                        ]}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.tagText,
+                            { color: EarthyColors.forestGreen },
+                          ]}
+                        >
                           {template.suggestedCadence}
                         </ThemedText>
                       </View>
@@ -209,13 +257,21 @@ export default function CommitmentWizardScreen() {
                   style={[
                     styles.templateCard,
                     styles.customCard,
-                    { backgroundColor: theme.backgroundTertiary, borderColor: theme.border },
+                    {
+                      backgroundColor: theme.backgroundTertiary,
+                      borderColor: theme.border,
+                    },
                   ]}
                   onPress={() => handleSelectTemplate(null)}
                 >
                   <Feather name="plus" size={24} color={theme.primary} />
                   <ThemedText type="h4">Custom streak</ThemedText>
-                  <ThemedText style={[styles.templateDesc, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    style={[
+                      styles.templateDesc,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
                     Create your own commitment
                   </ThemedText>
                 </Pressable>
@@ -241,7 +297,11 @@ export default function CommitmentWizardScreen() {
                 <TextInput
                   style={[
                     styles.input,
-                    { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border },
+                    {
+                      backgroundColor: theme.backgroundSecondary,
+                      color: theme.text,
+                      borderColor: theme.border,
+                    },
                   ]}
                   value={data.title}
                   onChangeText={(text) => setData({ ...data, title: text })}
@@ -251,15 +311,23 @@ export default function CommitmentWizardScreen() {
               </View>
 
               <View style={styles.formGroup}>
-                <ThemedText style={styles.label}>Description (optional)</ThemedText>
+                <ThemedText style={styles.label}>
+                  Description (optional)
+                </ThemedText>
                 <TextInput
                   style={[
                     styles.input,
                     styles.textArea,
-                    { backgroundColor: theme.backgroundSecondary, color: theme.text, borderColor: theme.border },
+                    {
+                      backgroundColor: theme.backgroundSecondary,
+                      color: theme.text,
+                      borderColor: theme.border,
+                    },
                   ]}
                   value={data.description}
-                  onChangeText={(text) => setData({ ...data, description: text })}
+                  onChangeText={(text) =>
+                    setData({ ...data, description: text })
+                  }
                   placeholder="What will you do?"
                   placeholderTextColor={theme.textSecondary}
                   multiline
@@ -290,7 +358,8 @@ export default function CommitmentWizardScreen() {
                     >
                       <ThemedText
                         style={{
-                          color: data.cadence === cadence.id ? "#fff" : theme.text,
+                          color:
+                            data.cadence === cadence.id ? "#fff" : theme.text,
                         }}
                       >
                         {cadence.label}
@@ -322,12 +391,21 @@ export default function CommitmentWizardScreen() {
                   >
                     <View>
                       <ThemedText>{mode.label}</ThemedText>
-                      <ThemedText style={[styles.optionDesc, { color: theme.textSecondary }]}>
+                      <ThemedText
+                        style={[
+                          styles.optionDesc,
+                          { color: theme.textSecondary },
+                        ]}
+                      >
                         {mode.description}
                       </ThemedText>
                     </View>
                     {data.proofMode === mode.id ? (
-                      <Feather name="check" size={20} color={EarthyColors.terraBrown} />
+                      <Feather
+                        name="check"
+                        size={20}
+                        color={EarthyColors.terraBrown}
+                      />
                     ) : null}
                   </Pressable>
                 ))}
@@ -350,7 +428,9 @@ export default function CommitmentWizardScreen() {
                     ]}
                     onPress={() => setData({ ...data, startToday: true })}
                   >
-                    <ThemedText style={{ color: data.startToday ? "#fff" : theme.text }}>
+                    <ThemedText
+                      style={{ color: data.startToday ? "#fff" : theme.text }}
+                    >
                       Today
                     </ThemedText>
                   </Pressable>
@@ -368,7 +448,9 @@ export default function CommitmentWizardScreen() {
                     ]}
                     onPress={() => setData({ ...data, startToday: false })}
                   >
-                    <ThemedText style={{ color: !data.startToday ? "#fff" : theme.text }}>
+                    <ThemedText
+                      style={{ color: !data.startToday ? "#fff" : theme.text }}
+                    >
                       Tomorrow
                     </ThemedText>
                   </Pressable>
@@ -388,7 +470,9 @@ export default function CommitmentWizardScreen() {
             <ThemedText type="h3" style={styles.stepTitle}>
               Set your accountability
             </ThemedText>
-            <ThemedText style={[styles.stepSubtitle, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.stepSubtitle, { color: theme.textSecondary }]}
+            >
               How much structure do you want?
             </ThemedText>
 
@@ -409,12 +493,17 @@ export default function CommitmentWizardScreen() {
                           : theme.border,
                     },
                   ]}
-                  onPress={() => setData({ ...data, accountabilityLevel: level.id })}
+                  onPress={() =>
+                    setData({ ...data, accountabilityLevel: level.id })
+                  }
                 >
                   <ThemedText
                     type="h4"
                     style={{
-                      color: data.accountabilityLevel === level.id ? "#fff" : theme.text,
+                      color:
+                        data.accountabilityLevel === level.id
+                          ? "#fff"
+                          : theme.text,
                     }}
                   >
                     {level.label}
@@ -436,26 +525,41 @@ export default function CommitmentWizardScreen() {
               ))}
             </View>
 
-            <View style={[styles.summaryCard, { backgroundColor: theme.backgroundSecondary }]}>
+            <View
+              style={[
+                styles.summaryCard,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
               <ThemedText type="h4" style={styles.summaryTitle}>
                 Summary
               </ThemedText>
               <View style={styles.summaryRow}>
-                <ThemedText style={{ color: theme.textSecondary }}>Streak:</ThemedText>
+                <ThemedText style={{ color: theme.textSecondary }}>
+                  Streak:
+                </ThemedText>
                 <ThemedText>{data.title || "Custom streak"}</ThemedText>
               </View>
               <View style={styles.summaryRow}>
-                <ThemedText style={{ color: theme.textSecondary }}>Cadence:</ThemedText>
-                <ThemedText style={{ textTransform: "capitalize" }}>{data.cadence}</ThemedText>
+                <ThemedText style={{ color: theme.textSecondary }}>
+                  Cadence:
+                </ThemedText>
+                <ThemedText style={{ textTransform: "capitalize" }}>
+                  {data.cadence}
+                </ThemedText>
               </View>
               <View style={styles.summaryRow}>
-                <ThemedText style={{ color: theme.textSecondary }}>Proof:</ThemedText>
+                <ThemedText style={{ color: theme.textSecondary }}>
+                  Proof:
+                </ThemedText>
                 <ThemedText>
                   {PROOF_MODES.find((m) => m.id === data.proofMode)?.label}
                 </ThemedText>
               </View>
               <View style={styles.summaryRow}>
-                <ThemedText style={{ color: theme.textSecondary }}>Accountability:</ThemedText>
+                <ThemedText style={{ color: theme.textSecondary }}>
+                  Accountability:
+                </ThemedText>
                 <ThemedText style={{ textTransform: "capitalize" }}>
                   {data.accountabilityLevel}
                 </ThemedText>
@@ -491,7 +595,8 @@ export default function CommitmentWizardScreen() {
                 style={[
                   styles.progressDot,
                   {
-                    backgroundColor: i <= step ? EarthyColors.terraBrown : theme.border,
+                    backgroundColor:
+                      i <= step ? EarthyColors.terraBrown : theme.border,
                     width: i === step ? 24 : 8,
                   },
                 ]}
@@ -520,7 +625,11 @@ export default function CommitmentWizardScreen() {
               <ThemedText style={styles.continueText}>
                 {step === 2 ? "Create Streak" : "Continue"}
               </ThemedText>
-              <Feather name={step === 2 ? "check" : "arrow-right"} size={20} color="#fff" />
+              <Feather
+                name={step === 2 ? "check" : "arrow-right"}
+                size={20}
+                color="#fff"
+              />
             </Pressable>
           </View>
         ) : null}

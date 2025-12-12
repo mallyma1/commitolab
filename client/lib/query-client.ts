@@ -26,7 +26,7 @@ async function throwIfResNotOk(res: Response) {
 export async function apiRequest(
   method: string,
   route: string,
-  data?: unknown | undefined,
+  data?: unknown | undefined
 ): Promise<Response> {
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
@@ -63,17 +63,28 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+/**
+ * Global query client configuration for React Query.
+ *
+ * Strategy:
+ * - Critical path queries (commitments, check-ins): short staleTime, lazy refetch
+ * - Non-essential queries (analytics, subscription): longer staleTime, lazy-load
+ * - Mutations: no automatic retry (user interaction expected)
+ */
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      // Queries are stale after this time, but won't refetch unless explicitly triggered
+      // Individual hooks can override with specific staleTime values
+      staleTime: 1000, // Default 1s - mostly for simple cached values
+      retry: 1, // Retry once on network failure
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
     mutations: {
-      retry: false,
+      retry: false, // Don't auto-retry mutations - user should be aware of failure
     },
   },
 });

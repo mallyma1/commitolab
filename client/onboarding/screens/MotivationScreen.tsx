@@ -28,15 +28,18 @@ export function MotivationScreen({ navigation }: Props) {
   const { payload, update } = useOnboardingContext();
 
   const toggleReward = (reward: string) => {
-    const current = payload.rewardStyle;
+    const current = payload.rewardStyle ?? [];
     if (current.includes(reward)) {
-      update("rewardStyle", current.filter((r) => r !== reward));
+      update(
+        "rewardStyle",
+        current.filter((r: string) => r !== reward)
+      );
     } else if (current.length < 3) {
       update("rewardStyle", [...current, reward]);
     }
   };
 
-  const canContinue = payload.rewardStyle.length >= 1;
+  const canContinue = (payload.rewardStyle?.length ?? 0) >= 1;
 
   return (
     <View
@@ -49,7 +52,10 @@ export function MotivationScreen({ navigation }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
@@ -61,7 +67,7 @@ export function MotivationScreen({ navigation }: Props) {
 
         <View style={styles.optionList}>
           {rewardOptions.map((reward) => {
-            const selected = payload.rewardStyle.includes(reward.id);
+            const selected = (payload.rewardStyle ?? []).includes(reward.id);
             return (
               <Pressable
                 key={reward.id}
@@ -69,7 +75,9 @@ export function MotivationScreen({ navigation }: Props) {
                 style={[
                   styles.optionCard,
                   {
-                    backgroundColor: selected ? theme.primary + "15" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "15"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
@@ -83,9 +91,13 @@ export function MotivationScreen({ navigation }: Props) {
                     },
                   ]}
                 >
-                  {selected ? <Feather name="check" size={14} color="#fff" /> : null}
+                  {selected ? (
+                    <Feather name="check" size={14} color="#fff" />
+                  ) : null}
                 </View>
-                <ThemedText style={styles.optionText}>{reward.label}</ThemedText>
+                <ThemedText style={styles.optionText}>
+                  {reward.label}
+                </ThemedText>
               </Pressable>
             );
           })}

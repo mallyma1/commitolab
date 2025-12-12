@@ -13,10 +13,22 @@ type Props = {
 
 const stateOptions = [
   { id: "energised", label: "Energised and ready", icon: "zap" as const },
-  { id: "overwhelmed", label: "Overwhelmed and stretched", icon: "alert-circle" as const },
-  { id: "burnt_out", label: "Burnt out or recovering", icon: "battery" as const },
+  {
+    id: "overwhelmed",
+    label: "Overwhelmed and stretched",
+    icon: "alert-circle" as const,
+  },
+  {
+    id: "burnt_out",
+    label: "Burnt out or recovering",
+    icon: "battery" as const,
+  },
   { id: "stuck", label: "Stuck or stagnant", icon: "pause-circle" as const },
-  { id: "rebuilding", label: "Rebuilding after a setback", icon: "refresh-cw" as const },
+  {
+    id: "rebuilding",
+    label: "Rebuilding after a setback",
+    icon: "refresh-cw" as const,
+  },
   { id: "curious", label: "Curious and exploring", icon: "compass" as const },
 ];
 
@@ -38,14 +50,18 @@ export function EmotionalStateScreen({ navigation }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
           How would you describe where you are right now?
         </ThemedText>
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-          This is a temperature check. We will not suggest six new habits if you are barely holding on.
+          This is a temperature check. We will not suggest six new habits if you
+          are barely holding on.
         </ThemedText>
 
         <View style={styles.optionList}>
@@ -58,17 +74,31 @@ export function EmotionalStateScreen({ navigation }: Props) {
                 style={[
                   styles.optionCard,
                   {
-                    backgroundColor: selected ? theme.primary + "15" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "15"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
               >
-                <View style={[styles.optionIcon, { backgroundColor: theme.primary + "20" }]}>
+                <View
+                  style={[
+                    styles.optionIcon,
+                    { backgroundColor: theme.primary + "20" },
+                  ]}
+                >
                   <Feather name={option.icon} size={20} color={theme.primary} />
                 </View>
-                <ThemedText style={styles.optionLabel}>{option.label}</ThemedText>
+                <ThemedText style={styles.optionLabel}>
+                  {option.label}
+                </ThemedText>
                 {selected ? (
-                  <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
+                  <View
+                    style={[
+                      styles.checkBadge,
+                      { backgroundColor: theme.primary },
+                    ]}
+                  >
                     <Feather name="check" size={14} color="#fff" />
                   </View>
                 ) : null}

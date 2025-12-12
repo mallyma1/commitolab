@@ -27,19 +27,23 @@ const archetypeLabels: Record<IdentityArchetype, string> = {
 
 const archetypeDescriptions: Record<IdentityArchetype, string> = {
   athlete: "Driven by discipline, progress and intentional effort.",
-  focused_creative: "Seeks clarity, deep focus and space to create their best work.",
-  disciplined_builder: "Values structure, long term gains and steady execution.",
+  focused_creative:
+    "Seeks clarity, deep focus and space to create their best work.",
+  disciplined_builder:
+    "Values structure, long term gains and steady execution.",
   balanced_mind: "Wants peace, mental clarity and a healthier internal world.",
-  better_everyday: "Small upgrades each day that compound into a different life.",
+  better_everyday:
+    "Small upgrades each day that compound into a different life.",
 };
 
-const archetypeIcons: Record<IdentityArchetype, keyof typeof Feather.glyphMap> = {
-  athlete: "activity",
-  focused_creative: "feather",
-  disciplined_builder: "layers",
-  balanced_mind: "sun",
-  better_everyday: "trending-up",
-};
+const archetypeIcons: Record<IdentityArchetype, keyof typeof Feather.glyphMap> =
+  {
+    athlete: "activity",
+    focused_creative: "feather",
+    disciplined_builder: "layers",
+    balanced_mind: "sun",
+    better_everyday: "trending-up",
+  };
 
 const goalCategoryLabels: Record<GoalCategory, string> = {
   fitness: "Fitness",
@@ -50,6 +54,9 @@ const goalCategoryLabels: Record<GoalCategory, string> = {
   nutrition: "Nutrition",
   personal_improvement: "Personal Improvement",
   custom: "Custom",
+  mind: "Mind",
+  relationships: "Relationships",
+  health: "Health",
 };
 
 const cadences = ["daily", "weekly", "custom"] as const;
@@ -65,7 +72,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const [step, setStep] = useState(1);
 
-  const [identityArchetype, setIdentityArchetype] = useState<IdentityArchetype | null>(null);
+  const [identityArchetype, setIdentityArchetype] =
+    useState<IdentityArchetype | null>(null);
   const [goalCategory, setGoalCategory] = useState<GoalCategory | null>(null);
   const [goalReason, setGoalReason] = useState("");
   const [cadence, setCadence] = useState<Cadence>("daily");
@@ -85,6 +93,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     if (!identityArchetype || !goalCategory) return;
 
     onComplete({
+      completed: true,
       identityArchetype,
       primaryGoalCategory: goalCategory,
       primaryGoalReason: goalReason.trim(),
@@ -95,7 +104,12 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const progress = (step / 4) * 100;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.backgroundRoot }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, backgroundColor: theme.backgroundRoot },
+      ]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -105,14 +119,20 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       >
         <View style={styles.progressContainer}>
           <View style={styles.progressHeader}>
-            <ThemedText style={[styles.progressLabel, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.progressLabel, { color: theme.textSecondary }]}
+            >
               Streak Tracker Setup
             </ThemedText>
-            <ThemedText style={[styles.stepLabel, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.stepLabel, { color: theme.textSecondary }]}
+            >
               Step {step} of 4
             </ThemedText>
           </View>
-          <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
+          <View
+            style={[styles.progressTrack, { backgroundColor: theme.border }]}
+          >
             <View
               style={[
                 styles.progressFill,
@@ -138,7 +158,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               canContinue={canGoNextStep2}
             />
           ) : null}
-          {step === 3 ? <Step3Science onNext={handleNext} onBack={handleBack} /> : null}
+          {step === 3 ? (
+            <Step3Science onNext={handleNext} onBack={handleBack} />
+          ) : null}
           {step === 4 ? (
             <Step4Personalise
               identityArchetype={identityArchetype}
@@ -168,15 +190,24 @@ function Step1Intro({ onNext }: { onNext: () => void }) {
         Let's build the version of you that shows up.
       </ThemedText>
       <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-        Most people break promises to themselves. You're here because you're done being
-        one of them. Streak Tracker turns your commitments into visible, verifiable
-        streaks that are harder to abandon.
+        Most people break promises to themselves. You're here because you're
+        done being one of them. Streak Tracker turns your commitments into
+        visible, verifiable streaks that are harder to abandon.
       </ThemedText>
 
       <View style={styles.bulletList}>
-        <BulletPoint icon="target" text="Capture your promise with one clear commitment." />
-        <BulletPoint icon="camera" text="Prove you showed up with visual check-ins." />
-        <BulletPoint icon="zap" text="Use streak psychology to stay consistent." />
+        <BulletPoint
+          icon="target"
+          text="Capture your promise with one clear commitment."
+        />
+        <BulletPoint
+          icon="camera"
+          text="Prove you showed up with visual check-ins."
+        />
+        <BulletPoint
+          icon="zap"
+          text="Use streak psychology to stay consistent."
+        />
       </View>
 
       <Pressable
@@ -190,15 +221,25 @@ function Step1Intro({ onNext }: { onNext: () => void }) {
   );
 }
 
-function BulletPoint({ icon, text }: { icon: keyof typeof Feather.glyphMap; text: string }) {
+function BulletPoint({
+  icon,
+  text,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  text: string;
+}) {
   const { theme } = useTheme();
 
   return (
     <View style={styles.bulletRow}>
-      <View style={[styles.bulletIcon, { backgroundColor: theme.primary + "20" }]}>
+      <View
+        style={[styles.bulletIcon, { backgroundColor: theme.primary + "20" }]}
+      >
         <Feather name={icon} size={16} color={theme.primary} />
       </View>
-      <ThemedText style={[styles.bulletText, { color: theme.textSecondary }]}>{text}</ThemedText>
+      <ThemedText style={[styles.bulletText, { color: theme.textSecondary }]}>
+        {text}
+      </ThemedText>
     </View>
   );
 }
@@ -231,8 +272,8 @@ function Step2Identity({
         Which version of you are you becoming?
       </ThemedText>
       <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-        Streak Tracker works best when it reflects the identity you're stepping into,
-        not just a task list.
+        Streak Tracker works best when it reflects the identity you're stepping
+        into, not just a task list.
       </ThemedText>
 
       <View style={styles.archetypeGrid}>
@@ -245,20 +286,40 @@ function Step2Identity({
               style={[
                 styles.archetypeCard,
                 {
-                  backgroundColor: selected ? theme.primary + "15" : theme.backgroundDefault,
+                  backgroundColor: selected
+                    ? theme.primary + "15"
+                    : theme.backgroundDefault,
                   borderColor: selected ? theme.primary : theme.border,
                 },
               ]}
             >
-              <View style={[styles.archetypeIcon, { backgroundColor: theme.primary + "20" }]}>
-                <Feather name={archetypeIcons[key]} size={20} color={theme.primary} />
+              <View
+                style={[
+                  styles.archetypeIcon,
+                  { backgroundColor: theme.primary + "20" },
+                ]}
+              >
+                <Feather
+                  name={archetypeIcons[key]}
+                  size={20}
+                  color={theme.primary}
+                />
               </View>
-              <ThemedText style={styles.archetypeLabel}>{archetypeLabels[key]}</ThemedText>
-              <ThemedText style={[styles.archetypeDesc, { color: theme.textSecondary }]}>
+              <ThemedText style={styles.archetypeLabel}>
+                {archetypeLabels[key]}
+              </ThemedText>
+              <ThemedText
+                style={[styles.archetypeDesc, { color: theme.textSecondary }]}
+              >
                 {archetypeDescriptions[key]}
               </ThemedText>
               {selected ? (
-                <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
+                <View
+                  style={[
+                    styles.checkBadge,
+                    { backgroundColor: theme.primary },
+                  ]}
+                >
                   <Feather name="check" size={14} color="#fff" />
                 </View>
               ) : null}
@@ -267,12 +328,22 @@ function Step2Identity({
         })}
       </View>
 
-      <NavigationButtons onBack={onBack} onNext={onNext} canContinue={canContinue} />
+      <NavigationButtons
+        onBack={onBack}
+        onNext={onNext}
+        canContinue={canContinue}
+      />
     </View>
   );
 }
 
-function Step3Science({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+function Step3Science({
+  onNext,
+  onBack,
+}: {
+  onNext: () => void;
+  onBack: () => void;
+}) {
   const { theme } = useTheme();
 
   return (
@@ -320,8 +391,12 @@ function ScienceCard({
 
   return (
     <Card style={styles.scienceCard}>
-      <View style={[styles.scienceTag, { backgroundColor: theme.primary + "20" }]}>
-        <ThemedText style={[styles.scienceTagText, { color: theme.primary }]}>{tag}</ThemedText>
+      <View
+        style={[styles.scienceTag, { backgroundColor: theme.primary + "20" }]}
+      >
+        <ThemedText style={[styles.scienceTagText, { color: theme.primary }]}>
+          {tag}
+        </ThemedText>
       </View>
       <ThemedText style={styles.scienceTitle}>{title}</ThemedText>
       <ThemedText style={[styles.scienceDesc, { color: theme.textSecondary }]}>
@@ -376,8 +451,8 @@ function Step4Personalise({
         Make this personal.
       </ThemedText>
       <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-        You're building momentum as {identityLabel}. Let's anchor it to one clear habit
-        that matters.
+        You're building momentum as {identityLabel}. Let's anchor it to one
+        clear habit that matters.
       </ThemedText>
 
       <ThemedText style={styles.fieldLabel}>
@@ -393,12 +468,19 @@ function Step4Personalise({
               style={[
                 styles.chip,
                 {
-                  backgroundColor: selected ? theme.primary + "20" : theme.backgroundDefault,
+                  backgroundColor: selected
+                    ? theme.primary + "20"
+                    : theme.backgroundDefault,
                   borderColor: selected ? theme.primary : theme.border,
                 },
               ]}
             >
-              <ThemedText style={[styles.chipText, selected ? { color: theme.primary } : null]}>
+              <ThemedText
+                style={[
+                  styles.chipText,
+                  selected ? { color: theme.primary } : null,
+                ]}
+              >
                 {goalCategoryLabels[cat]}
               </ThemedText>
             </Pressable>
@@ -406,7 +488,9 @@ function Step4Personalise({
         })}
       </View>
 
-      <ThemedText style={styles.fieldLabel}>Why does this matter to you?</ThemedText>
+      <ThemedText style={styles.fieldLabel}>
+        Why does this matter to you?
+      </ThemedText>
       <TextInput
         style={[
           styles.textArea,
@@ -428,7 +512,9 @@ function Step4Personalise({
         At least 10 characters so we can echo this back when it gets hard.
       </ThemedText>
 
-      <ThemedText style={styles.fieldLabel}>How often do you want to show up?</ThemedText>
+      <ThemedText style={styles.fieldLabel}>
+        How often do you want to show up?
+      </ThemedText>
       <View style={styles.chipGrid}>
         {cadences.map((c) => {
           const selected = cadence === c;
@@ -439,12 +525,19 @@ function Step4Personalise({
               style={[
                 styles.chip,
                 {
-                  backgroundColor: selected ? theme.primary + "20" : theme.backgroundDefault,
+                  backgroundColor: selected
+                    ? theme.primary + "20"
+                    : theme.backgroundDefault,
                   borderColor: selected ? theme.primary : theme.border,
                 },
               ]}
             >
-              <ThemedText style={[styles.chipText, selected ? { color: theme.primary } : null]}>
+              <ThemedText
+                style={[
+                  styles.chipText,
+                  selected ? { color: theme.primary } : null,
+                ]}
+              >
                 {c.charAt(0).toUpperCase() + c.slice(1)}
               </ThemedText>
             </Pressable>
@@ -453,18 +546,26 @@ function Step4Personalise({
       </View>
 
       <View style={styles.navButtons}>
-        <Pressable style={[styles.backButton, { borderColor: theme.border }]} onPress={onBack}>
+        <Pressable
+          style={[styles.backButton, { borderColor: theme.border }]}
+          onPress={onBack}
+        >
           <ThemedText style={{ color: theme.textSecondary }}>Back</ThemedText>
         </Pressable>
         <Pressable
           style={[
             styles.primaryButton,
-            { flex: 1, backgroundColor: canFinish ? theme.primary : theme.border },
+            {
+              flex: 1,
+              backgroundColor: canFinish ? theme.primary : theme.border,
+            },
           ]}
           onPress={onFinish}
           disabled={!canFinish}
         >
-          <ThemedText style={styles.primaryButtonText}>Start My Streak</ThemedText>
+          <ThemedText style={styles.primaryButtonText}>
+            Start My Streak
+          </ThemedText>
           <Feather name="zap" size={18} color="#fff" />
         </Pressable>
       </View>
@@ -485,7 +586,10 @@ function NavigationButtons({
 
   return (
     <View style={styles.navButtons}>
-      <Pressable style={[styles.backButton, { borderColor: theme.border }]} onPress={onBack}>
+      <Pressable
+        style={[styles.backButton, { borderColor: theme.border }]}
+        onPress={onBack}
+      >
         <ThemedText style={{ color: theme.textSecondary }}>Back</ThemedText>
       </Pressable>
       <Pressable
@@ -496,7 +600,9 @@ function NavigationButtons({
         onPress={onNext}
         disabled={!canContinue}
       >
-        <ThemedText style={[styles.continueButtonText, { color: theme.backgroundRoot }]}>
+        <ThemedText
+          style={[styles.continueButtonText, { color: theme.backgroundRoot }]}
+        >
           Continue
         </ThemedText>
       </Pressable>

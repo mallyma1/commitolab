@@ -227,12 +227,14 @@ async function downloadBundlesAndManifests(timestamp) {
   console.log("This may take several minutes for production builds...");
 
   try {
-    console.log("Building iOS bundle first (sequential to reduce Metro load)...");
+    console.log(
+      "Building iOS bundle first (sequential to reduce Metro load)...",
+    );
     await downloadBundle("ios", timestamp);
-    
+
     console.log("Building Android bundle...");
     await downloadBundle("android", timestamp);
-    
+
     console.log("Fetching manifests...");
     const results = await Promise.allSettled([
       Promise.resolve({ status: "fulfilled" }),

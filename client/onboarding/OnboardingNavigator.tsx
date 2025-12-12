@@ -1,7 +1,7 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { OnboardingProvider } from "./OnboardingContext";
-import { OnboardingIntroScreen } from "./screens/OnboardingIntroScreen";
+import { CommittoIntroScreen } from "./screens/CommittoIntroScreen";
 import { RolesScreen } from "./screens/RolesScreen";
 import { FocusDomainsScreen } from "./screens/FocusDomainsScreen";
 import { StrugglePatternsScreen } from "./screens/StrugglePatternsScreen";
@@ -11,7 +11,11 @@ import { EmotionalStateScreen } from "./screens/EmotionalStateScreen";
 import { ToneScreen } from "./screens/ToneScreen";
 import { ProfileSummaryScreen } from "./screens/ProfileSummaryScreen";
 import { RecommendationsScreen } from "./screens/RecommendationsScreen";
-import type { OnboardingPayload, HabitProfileSummary, CommitmentRecommendation } from "../../shared/onboardingTypes";
+import type {
+  OnboardingPayload,
+  HabitProfileSummary,
+  CommitmentRecommendation,
+} from "@/shared/onboardingTypes";
 
 export type NewOnboardingParamList = {
   Intro: undefined;
@@ -43,7 +47,7 @@ export function OnboardingNavigator({ onComplete }: Props) {
   return (
     <OnboardingProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Intro" component={OnboardingIntroScreen} />
+        <Stack.Screen name="Intro" component={CommittoIntroScreen} />
         <Stack.Screen name="Roles" component={RolesScreen} />
         <Stack.Screen name="FocusDomains" component={FocusDomainsScreen} />
         <Stack.Screen name="Struggles" component={StrugglePatternsScreen} />
@@ -53,7 +57,9 @@ export function OnboardingNavigator({ onComplete }: Props) {
         <Stack.Screen name="Tone" component={ToneScreen} />
         <Stack.Screen name="Summary" component={ProfileSummaryScreen} />
         <Stack.Screen name="Recommendations">
-          {(props) => <RecommendationsScreen {...props} onComplete={onComplete} />}
+          {(props) => (
+            <RecommendationsScreen {...props} onComplete={onComplete} />
+          )}
         </Stack.Screen>
       </Stack.Navigator>
     </OnboardingProvider>

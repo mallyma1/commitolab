@@ -155,7 +155,6 @@ export default function BehavioralOnboardingScreen({
     } else {
       const habitProfile = generateHabitProfile({
         motivations: data.motivations,
-        focusArea: data.focusArea,
         rewardStyle: data.rewardStyle,
         changeStyle: data.changeStyle,
         relapseTriggers: data.relapseTriggers,
@@ -170,10 +169,7 @@ export default function BehavioralOnboardingScreen({
     }
   };
 
-  const toggleArrayItem = (
-    key: keyof OnboardingData,
-    item: string
-  ) => {
+  const toggleArrayItem = (key: keyof OnboardingData, item: string) => {
     const arr = data[key] as string[];
     if (arr.includes(item)) {
       setData({ ...data, [key]: arr.filter((i) => i !== item) });
@@ -187,9 +183,16 @@ export default function BehavioralOnboardingScreen({
   };
 
   const renderMicrocard = (index: number) => (
-    <View style={[styles.microcard, { backgroundColor: `${EarthyColors.sandBeige}20` }]}>
+    <View
+      style={[
+        styles.microcard,
+        { backgroundColor: `${EarthyColors.sandBeige}20` },
+      ]}
+    >
       <Feather name="info" size={14} color={EarthyColors.terraBrown} />
-      <ThemedText style={[styles.microcardText, { color: theme.textSecondary }]}>
+      <ThemedText
+        style={[styles.microcardText, { color: theme.textSecondary }]}
+      >
         {SCIENTIFIC_MICROCARDS[index % SCIENTIFIC_MICROCARDS.length]}
       </ThemedText>
     </View>
@@ -208,7 +211,13 @@ export default function BehavioralOnboardingScreen({
               <ThemedText type="h1" style={styles.cinematicTitle}>
                 Most people break promises to themselves.
               </ThemedText>
-              <ThemedText type="bodyLarge" style={[styles.cinematicSubtitle, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="bodyLarge"
+                style={[
+                  styles.cinematicSubtitle,
+                  { color: theme.textSecondary },
+                ]}
+              >
                 You're not here to be most people.
               </ThemedText>
             </View>
@@ -226,7 +235,10 @@ export default function BehavioralOnboardingScreen({
               <ThemedText type="h2" style={styles.stepTitle}>
                 This is where discipline becomes visible.
               </ThemedText>
-              <ThemedText type="bodyLarge" style={[styles.stepSubtitle, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="bodyLarge"
+                style={[styles.stepSubtitle, { color: theme.textSecondary }]}
+              >
                 Your habits turn into proof. Your proof turns into identity.
               </ThemedText>
               {renderMicrocard(0)}
@@ -582,7 +594,6 @@ export default function BehavioralOnboardingScreen({
       case 9:
         const profile = generateHabitProfile({
           motivations: data.motivations,
-          focusArea: data.focusArea,
           rewardStyle: data.rewardStyle,
           changeStyle: data.changeStyle,
           relapseTriggers: data.relapseTriggers,
@@ -612,7 +623,10 @@ export default function BehavioralOnboardingScreen({
                   {profile.name}
                 </ThemedText>
                 <ThemedText
-                  style={[styles.profileDescription, { color: theme.textSecondary }]}
+                  style={[
+                    styles.profileDescription,
+                    { color: theme.textSecondary },
+                  ]}
                 >
                   {profile.description}
                 </ThemedText>
@@ -628,7 +642,9 @@ export default function BehavioralOnboardingScreen({
                         size={16}
                         color={EarthyColors.forestGreen}
                       />
-                      <ThemedText style={styles.bulletText}>{strength}</ThemedText>
+                      <ThemedText style={styles.bulletText}>
+                        {strength}
+                      </ThemedText>
                     </View>
                   ))}
                 </View>
@@ -660,7 +676,9 @@ export default function BehavioralOnboardingScreen({
                         size={16}
                         color={EarthyColors.copper}
                       />
-                      <ThemedText style={styles.bulletText}>{strategy}</ThemedText>
+                      <ThemedText style={styles.bulletText}>
+                        {strategy}
+                      </ThemedText>
                     </View>
                   ))}
                 </View>

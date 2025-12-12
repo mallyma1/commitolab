@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/query-client";
-import { FREE_MODE } from "../../shared/config";
+import { FREE_MODE } from "@/shared/config";
 
 export interface SubscriptionStatus {
   isPro: boolean;
@@ -17,19 +17,19 @@ async function fetchSubscriptionStatus(): Promise<SubscriptionStatus | null> {
   try {
     const baseUrl = getApiUrl();
     const url = new URL("/api/stripe/subscription", baseUrl);
-    
+
     const res = await fetch(url, {
       credentials: "include",
     });
-    
+
     if (res.status === 401) {
       return null;
     }
-    
+
     if (!res.ok) {
       return null;
     }
-    
+
     return await res.json();
   } catch {
     return null;
@@ -37,27 +37,30 @@ async function fetchSubscriptionStatus(): Promise<SubscriptionStatus | null> {
 }
 
 export function useSubscription() {
-  const { data, isLoading, error, refetch } = useQuery<SubscriptionStatus | null>({
-    queryKey: ["/api/stripe/subscription"],
-    queryFn: fetchSubscriptionStatus,
-    select: (data) => {
-      if (!data) {
+  const { data, isLoading, error, refetch } =
+    useQuery<SubscriptionStatus | null>({
+      queryKey: ["/api/stripe/subscription"],
+      queryFn: fetchSubscriptionStatus,
+      select: (data) => {
+        if (!data) {
+          return {
+            isPro: false,
+            plan: "free" as const,
+            subscription: null,
+          };
+        }
         return {
-          isPro: false,
-          plan: "free" as const,
-          subscription: null,
+          isPro: data.plan === "pro" && data.subscription?.status === "active",
+          plan: data.plan || ("free" as const),
+          subscription: data.subscription,
         };
-      }
-      return {
-        isPro: data.plan === "pro" && data.subscription?.status === "active",
-        plan: data.plan || ("free" as const),
-        subscription: data.subscription,
-      };
-    },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    retry: false,
-  });
+      },
+      staleTime: 30 * 60 * 1000, // 30 minutes - subscription status changes rarely
+      gcTime: 60 * 60 * 1000, // 60 minutes - keep in cache for a while
+      retry: 1, // Retry once but don't block UI
+      refetchOnMount: false, // Don't refetch on mount
+      refetchOnWindowFocus: false, // Don't refetch on focus
+    });
 
   return {
     isPro: FREE_MODE ? true : (data?.isPro ?? false),

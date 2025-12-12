@@ -1,1618 +1,874 @@
-import React, {
-  useMemo,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, StyleSheet, ScrollView, Pressable } from "react-native";
+import Animated, {
+  FadeInDown,
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { ProGate } from "@/components/ProGate";
-import { useTheme } from "@/hooks/useTheme";
-import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
-import {
-  Spacing,
-  BorderRadius,
-  EarthyColors,
-} from "@/constants/theme";
-import type { DopamineEntry } from "@shared/schema";
+import { PremiumColors, Spacing, BorderRadius } from "@/constants/theme";
 
+const DOPAMINE_STORAGE_KEY = "@dopamine_lab_data";
+const DOPAMINE_INTRO_KEY = "@dopamine_intro_seen";
+
+// Motivational quotes
+const MOTIVATIONAL_QUOTES = [
+  "Small wins compound into lasting change.",
+  "Consistency is the bedrock of motivation.",
+  "Natural dopamine fuels sustainable growth.",
+  "Every habit is a vote for the person you want to be.",
+  "Progress, not perfection.",
+];
+
+// Premium habit definitions
 type HabitId =
   | "movedBody"
   | "daylight"
-  | "social"
-  | "creative"
-  | "music"
+  | "meditation"
+  | "nature"
+  | "breathing"
   | "learning"
-  | "coldExposure"
-  | "protectedSleep"
-  | "stillness"
-  | "natureTime";
+  | "hydration"
+  | "cold"
+  | "social";
 
 type HabitConfig = {
   id: HabitId;
   label: string;
   icon: string;
   description: string;
-  scienceKey: string;
+  science: string;
 };
 
-// We map some UI habits onto the same underlying fields for now
-// so we do not have to change the shared schema yet:
-// - stillness -> treated as "creative" in data layer for now
-// - natureTime -> treated as "daylight" in data layer for now
-const HABITS: HabitConfig[] = [
+const PREMIUM_HABITS: HabitConfig[] = [
   {
     id: "movedBody",
-    label: "Moved your body",
+    label: "Movement",
     icon: "activity",
-    description: "Any exercise or walk that raised your heart rate a little.",
-    scienceKey: "movement",
+    description: "Physical activity or training",
+    science: "Releases dopamine and BDNF, improving mood and motivation.",
   },
   {
     id: "daylight",
-    label: "Morning light",
-    icon: "sunrise",
-    description: "At least a few minutes of outside light before noon.",
-    scienceKey: "light",
+    label: "Daylight",
+    icon: "sun",
+    description: "10+ mins of sunlight",
+    science: "Regulates circadian rhythms and dopamine receptors.",
   },
   {
-    id: "social",
-    label: "Real connection",
-    icon: "users",
-    description: "A genuine chat, call or time with someone you care about.",
-    scienceKey: "social",
+    id: "meditation",
+    label: "Meditation",
+    icon: "wind",
+    description: "Mental stillness or grounding",
+    science: "Reduces cortisol, increases baseline dopamine tone.",
   },
   {
-    id: "creative",
-    label: "Created something",
-    icon: "edit-3",
-    description: "Wrote, designed, built or made progress on a project.",
-    scienceKey: "creative",
+    id: "nature",
+    label: "Nature",
+    icon: "leaf",
+    description: "Time in natural environment",
+    science: "Lowers stress and enhances psychological restoration.",
   },
   {
-    id: "music",
-    label: "Intentional music",
-    icon: "music",
-    description: "Listened or played, not just background noise.",
-    scienceKey: "music",
+    id: "breathing",
+    label: "Deep Breathing",
+    icon: "wind",
+    description: "5+ minutes of conscious breathing",
+    science: "Activates parasympathetic nervous system, calms mind.",
   },
   {
     id: "learning",
-    label: "Learnt something",
+    label: "Learning",
     icon: "book-open",
-    description: "Read, watched or practised something new.",
-    scienceKey: "learning",
+    description: "Something new and interesting",
+    science: "Stimulates neural plasticity and sense of progress.",
   },
   {
-    id: "coldExposure",
-    label: "Cold reset",
+    id: "hydration",
+    label: "Hydration",
     icon: "droplet",
-    description: "Cold shower or similar that shifted your state.",
-    scienceKey: "cold",
+    description: "Consistent water intake",
+    science: "Improves cognitive function and mood stability.",
   },
   {
-    id: "protectedSleep",
-    label: "Protected sleep",
-    icon: "moon",
-    description: "Tried to keep a consistent sleep window.",
-    scienceKey: "sleep",
+    id: "cold",
+    label: "Cold Exposure",
+    icon: "cloud",
+    description: "Cold shower or ice bath",
+    science: "Triggers norepinephrine release, builds resilience.",
   },
   {
-    id: "stillness",
-    label: "Stillness / prayer",
-    icon: "heart",
-    description:
-      "Meditation, breathwork, prayer or quiet reflection, even for a few minutes.",
-    scienceKey: "meditation",
-  },
-  {
-    id: "natureTime",
-    label: "Time in nature",
-    icon: "feather",
-    description:
-      "Park, trees, water or any place that felt more natural than digital.",
-    scienceKey: "nature",
+    id: "social",
+    label: "Social Connection",
+    icon: "users",
+    description: "Meaningful interaction",
+    science: "Releases oxytocin, deepens belonging and motivation.",
   },
 ];
 
-type LocalState = {
-  movedBody: boolean;
-  daylight: boolean;
-  social: boolean;
-  creative: boolean;
-  music: boolean;
-  learning: boolean;
-  coldExposure: boolean;
-  protectedSleep: boolean;
-  stillness: boolean;
-  natureTime: boolean;
-};
-
-function emptyLocal(): LocalState {
-  return {
-    movedBody: false,
-    daylight: false,
-    social: false,
-    creative: false,
-    music: false,
-    learning: false,
-    coldExposure: false,
-    protectedSleep: false,
-    stillness: false,
-    natureTime: false,
-  };
+interface HabitState {
+  [habitId: string]: boolean;
 }
 
-const SCIENCE_SNIPPETS: Record<string, string> = {
-  movement:
-    "Regular movement increases dopamine receptor sensitivity over time, which can improve motivation rather than just give a short spike.",
-  light:
-    "Morning daylight helps set your circadian rhythm, anchoring cortisol and dopamine to a more stable daily pattern.",
-  social:
-    "Quality social connection activates dopamine and oxytocin systems together, which is linked to better resilience and lower stress.",
-  creative:
-    "Creative work often produces small, repeated dopamine pulses as you solve problems or make progress, which is healthier than one big hit.",
-  music:
-    "Music can modulate dopamine release in reward pathways and is used in clinical settings to support mood and movement.",
-  learning:
-    "Learning something new increases dopamine in response to novelty and prediction error, reinforcing curiosity and progress.",
-  cold:
-    "Short controlled cold exposure can trigger a significant, lasting increase in dopamine and noradrenaline, improving focus for hours.",
-  sleep:
-    "Consistent sleep supports the overnight reset of dopamine receptors and reduces the craving for quick digital hits.",
-  meditation:
-    "Meditation and prayer practices can reduce baseline stress signalling, making your natural dopamine peaks feel clearer and more rewarding.",
-  nature:
-    "Time in natural spaces is linked to lower stress hormones and improved mood, which supports a healthier dopamine baseline.",
-};
+interface DailyData {
+  date: string;
+  habits: HabitState;
+  score: number;
+}
 
-export default function DopamineLabScreen() {
+// Header Section with Score Ring
+function HeaderSection({
+  todayScore,
+  maxScore,
+}: {
+  todayScore: number;
+  maxScore: number;
+}) {
+  const insets = useSafeAreaInsets();
+  const quoteIndex = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
+  const quote = MOTIVATIONAL_QUOTES[quoteIndex];
+  const percentage = (todayScore / maxScore) * 100;
+
   return (
-    <ProGate feature="dopamineLab" featureName="Dopamine Lab">
-      <DopamineLabContent />
-    </ProGate>
+    <LinearGradient
+      colors={[PremiumColors.sandBeige, PremiumColors.backgroundMain]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}
+    >
+      <View style={styles.scoreContainer}>
+        <View style={styles.scoreRing}>
+          <ThemedText type="h1" style={styles.scoreValue}>
+            {todayScore}
+          </ThemedText>
+          <ThemedText style={styles.scoreLabel}>of {maxScore}</ThemedText>
+        </View>
+        <View style={styles.scoreInfo}>
+          <ThemedText type="h3">Today's Progress</ThemedText>
+          <View
+            style={[
+              styles.progressBar,
+              { width: `${Math.min(percentage, 100)}%` },
+            ]}
+          />
+          <ThemedText style={styles.progressPercent}>
+            {Math.round(percentage)}%
+          </ThemedText>
+        </View>
+      </View>
+
+      <View style={styles.quoteCard}>
+        <Feather
+          name="message-circle"
+          size={16}
+          color={PremiumColors.copperOrange}
+          style={styles.quoteIcon}
+        />
+        <ThemedText style={styles.quoteText}>{quote}</ThemedText>
+      </View>
+    </LinearGradient>
   );
 }
 
-function DopamineLabContent() {
-  const { theme } = useTheme();
-  const { user } = useAuth();
-  const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
-  const tabBarHeight = useBottomTabBarHeight();
-  const queryClient = useQueryClient();
+// Premium Habit Tile
+function HabitTile({
+  habit,
+  checked,
+  onToggle,
+  index,
+}: {
+  habit: (typeof PREMIUM_HABITS)[0];
+  checked: boolean;
+  onToggle: () => void;
+  index: number;
+}) {
+  const scale = useSharedValue(1);
+  const checkScale = useSharedValue(checked ? 1 : 0);
+  const opacity = useSharedValue(checked ? 1 : 0);
 
-  const [localState, setLocalState] = useState<LocalState>(emptyLocal());
-
-  const { data: todayEntry, isLoading } =
-    useQuery<DopamineEntry | null>({
-      queryKey: ["/api/dopamine/today"],
-      enabled: !!user,
-    });
-
-  // Seed local state from server on first load and when server data changes
   useEffect(() => {
-    if (!todayEntry) {
-      setLocalState(emptyLocal());
-      return;
-    }
-
-    setLocalState((prev) => ({
-      ...prev,
-      movedBody: Boolean(
-        (todayEntry as any).movedBody ?? prev.movedBody,
-      ),
-      daylight: Boolean(
-        (todayEntry as any).daylight ?? prev.daylight,
-      ),
-      social: Boolean(
-        (todayEntry as any).social ?? prev.social,
-      ),
-      creative: Boolean(
-        (todayEntry as any).creative ?? prev.creative,
-      ),
-      music: Boolean(
-        (todayEntry as any).music ?? prev.music,
-      ),
-      learning: Boolean(
-        (todayEntry as any).learning ?? prev.learning,
-      ),
-      coldExposure: Boolean(
-        (todayEntry as any).coldExposure ??
-          prev.coldExposure,
-      ),
-      protectedSleep: Boolean(
-        (todayEntry as any).protectedSleep ??
-          prev.protectedSleep,
-      ),
-      // stillness and natureTime are mapped into creative/daylight
-      stillness: Boolean(
-        (todayEntry as any).creative ??
-          prev.stillness,
-      ),
-      natureTime: Boolean(
-        (todayEntry as any).daylight ??
-          prev.natureTime,
-      ),
-    }));
-  }, [todayEntry]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (nextState: LocalState) => {
-      // Map UI state back into the existing backend fields for now
-      const payload = {
-        movedBody: nextState.movedBody,
-        daylight:
-          nextState.daylight || nextState.natureTime,
-        social: nextState.social,
-        creative:
-          nextState.creative || nextState.stillness,
-        music: nextState.music,
-        learning: nextState.learning,
-        coldExposure: nextState.coldExposure,
-        protectedSleep: nextState.protectedSleep,
-      };
-
-      return apiRequest("POST", "/api/dopamine", payload);
-    },
-    onMutate: async (nextState: LocalState) => {
-      await queryClient.cancelQueries({
-        queryKey: ["/api/dopamine/today"],
-      });
-      // Optimistically reflect the local state
-      setLocalState(nextState);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/dopamine/today"],
-      });
-    },
-  });
-
-  const toggleHabit = (id: HabitId) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(
-        Haptics.ImpactFeedbackStyle.Light,
-      );
-    }
-
-    setLocalState((prev) => {
-      const next = {
-        ...prev,
-        [id]: !prev[id],
-      } as LocalState;
-      saveMutation.mutate(next);
-      return next;
+    checkScale.value = withSpring(checked ? 1 : 0, {
+      damping: 8,
+      mass: 1,
+      overshootClamping: true,
     });
+    opacity.value = withTiming(checked ? 1 : 0, { duration: 200 });
+  }, [checked, checkScale, opacity]);
+
+  const handlePress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scale.value = withSpring(1.03, { damping: 10, mass: 0.8 });
+    scale.value = withSpring(1, { damping: 10, mass: 0.8 });
+    onToggle();
   };
 
-  const score = useMemo(() => {
-    return HABITS.reduce(
-      (total, habit) =>
-        localState[habit.id] ? total + 1 : total,
-      0,
-    );
-  }, [localState]);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
-  const target = 3;
-  const maxScore = HABITS.length;
-
-  const insight = useMemo(() => {
-    if (score === 0) {
-      return "Start by aiming for any one habit today. The goal is consistency, not a perfect board.";
-    }
-    if (score < target) {
-      return "Nice work. You are on the board. See if you can nudge it to three habits most days.";
-    }
-    if (score === target) {
-      return "You have hit the daily target. Anything above this is bonus, not pressure.";
-    }
-    if (score < maxScore) {
-      return "Strong day. Make sure it still feels sustainable and not like a checklist you have to clear.";
-    }
-    return "You ticked everything. Brilliant, but keep an eye on rest so this stays enjoyable.";
-  }, [score, target, maxScore]);
-
-  const scienceKeyForToday = useMemo(() => {
-    if (score === 0) return null;
-    const activeKeys = HABITS.filter(
-      (h) => localState[h.id],
-    ).map((h) => h.scienceKey);
-    if (activeKeys.length === 0) return null;
-    // Simple deterministic pick from active habits
-    const index =
-      new Date().getDate() % activeKeys.length;
-    return activeKeys[index];
-  }, [localState, score]);
-
-  const scienceSnippet =
-    scienceKeyForToday &&
-    SCIENCE_SNIPPETS[scienceKeyForToday];
-
-  const { theme: t } = { theme };
-
-  const insetsBottom = insets.bottom;
-
-  if (!user) {
-    return (
-      <ThemedView
-        style={[
-          styles.container,
-          styles.loadingContainer,
-          {
-            paddingTop: insets.top,
-            paddingBottom: insetsBottom,
-          },
-        ]}
-      >
-        <ThemedText>
-          Please sign in to use Dopamine Lab.
-        </ThemedText>
-      </ThemedView>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <ThemedView
-        style={[
-          styles.container,
-          styles.loadingContainer,
-          {
-            paddingTop: insets.top,
-            paddingBottom: insetsBottom,
-          },
-        ]}
-      >
-        <ActivityIndicator
-          size="large"
-          color={t.primary}
-        />
-      </ThemedView>
-    );
-  }
+  const checkAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+    opacity: opacity.value,
+  }));
 
   return (
-    <ThemedView style={styles.container}>
+    <Animated.View
+      entering={FadeInDown.delay(index * 50).springify()}
+      style={animatedStyle}
+    >
+      <Pressable
+        onPress={handlePress}
+        style={[styles.habitTile, checked && styles.habitTileChecked]}
+      >
+        <View style={[styles.iconCircle, checked && styles.iconCircleChecked]}>
+          <Feather
+            name={habit.icon as any}
+            size={20}
+            color={checked ? "white" : PremiumColors.copperOrange}
+          />
+        </View>
+
+        <View style={styles.habitContent}>
+          <ThemedText style={styles.habitLabel}>{habit.label}</ThemedText>
+          <ThemedText style={styles.habitDescription}>
+            {habit.description}
+          </ThemedText>
+        </View>
+
+        <Animated.View style={[styles.checkmark, checkAnimatedStyle]}>
+          <Feather name="check" size={18} color={PremiumColors.forestGreen} />
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+// Weekly Trends Graph
+function WeeklyTrendsGraph({ weeklyData }: { weeklyData: DailyData[] }) {
+  const getLast7Days = () => {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      days.push(date.toISOString().slice(0, 10));
+    }
+    return days;
+  };
+
+  const last7Days = getLast7Days();
+  const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const maxCount = PREMIUM_HABITS.length;
+
+  const dayScores = last7Days.map((day) => {
+    const dayData = weeklyData.find((d) => d.date === day);
+    return dayData?.score || 0;
+  });
+
+  return (
+    <View style={styles.trendContainer}>
+      <ThemedText type="h3" style={styles.trendTitle}>
+        Weekly Progress
+      </ThemedText>
+
+      <View style={styles.graphContainer}>
+        {dayScores.map((score, idx) => {
+          const height = (score / maxCount) * 100;
+          const isToday = idx === last7Days.length - 1;
+          const barColor =
+            score < 3
+              ? PremiumColors.copperOrange
+              : score < PREMIUM_HABITS.length
+                ? PremiumColors.skyBlue
+                : PremiumColors.forestGreen;
+
+          return (
+            <View key={idx} style={styles.barWrapper}>
+              <Animated.View
+                entering={FadeInDown.delay(idx * 100).springify()}
+                style={[
+                  styles.bar,
+                  {
+                    height: `${Math.max(height, 15)}%`,
+                    backgroundColor: barColor,
+                    borderRadius: isToday ? 8 : 4,
+                    borderWidth: isToday ? 2 : 0,
+                    borderColor: PremiumColors.forestGreen,
+                  },
+                ]}
+              />
+              <ThemedText style={styles.dayLabel}>{dayLabels[idx]}</ThemedText>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+// Science Card (Collapsible)
+function ScienceCard() {
+  const [expanded, setExpanded] = useState(false);
+  const heightAnim = useSharedValue(0);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    height: heightAnim.value,
+    overflow: "hidden",
+  }));
+
+  const handleToggle = () => {
+    setExpanded(!expanded);
+    heightAnim.value = withTiming(expanded ? 0 : 300, { duration: 300 });
+  };
+
+  return (
+    <View style={styles.scienceCard}>
+      <Pressable style={styles.scienceHeader} onPress={handleToggle}>
+        <View style={styles.scienceTitleRow}>
+          <Feather name="zap" size={20} color={PremiumColors.copperOrange} />
+          <ThemedText type="h3" style={styles.scienceTitle}>
+            Why These Habits
+          </ThemedText>
+        </View>
+        <Feather
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={20}
+          color={PremiumColors.textSecondary}
+        />
+      </Pressable>
+
+      <Animated.View style={animatedStyle}>
+        <ScrollView
+          scrollEnabled={false}
+          style={styles.scienceContent}
+          contentContainerStyle={styles.scienceContentInner}
+        >
+          {PREMIUM_HABITS.slice(0, 4).map((habit) => (
+            <View key={habit.id} style={styles.scienceItem}>
+              <ThemedText style={styles.scienceHabitName}>
+                {habit.label}
+              </ThemedText>
+              <ThemedText style={styles.scienceExplanation}>
+                {habit.science}
+              </ThemedText>
+            </View>
+          ))}
+        </ScrollView>
+      </Animated.View>
+    </View>
+  );
+}
+
+// Onboarding Modal
+function OnboardingModal({
+  visible,
+  onDismiss,
+}: {
+  visible: boolean;
+  onDismiss: () => void;
+}) {
+  const [slide, setSlide] = useState(0);
+  const slides = [
+    {
+      title: "Dopamine Lab",
+      description: "Understanding your biology helps you build better habits.",
+      icon: "brain",
+    },
+    {
+      title: "Natural Rewards",
+      description: "Real dopamine comes from healthy habits, not shortcuts.",
+      icon: "zap",
+    },
+    {
+      title: "Track What Matters",
+      description: "Daily check-ins show which habits fuel your motivation.",
+      icon: "check-circle",
+    },
+  ];
+
+  const currentSlide = slides[slide];
+
+  if (!visible) return null;
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent}>
+        <Feather
+          name={currentSlide.icon as any}
+          size={48}
+          color={PremiumColors.copperOrange}
+          style={styles.modalIcon}
+        />
+        <ThemedText type="h2" style={styles.modalTitle}>
+          {currentSlide.title}
+        </ThemedText>
+        <ThemedText style={styles.modalDescription}>
+          {currentSlide.description}
+        </ThemedText>
+
+        <View style={styles.slideIndicators}>
+          {slides.map((_, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.indicator,
+                idx === slide && styles.indicatorActive,
+              ]}
+            />
+          ))}
+        </View>
+
+        <View style={styles.modalButtons}>
+          {slide < slides.length - 1 ? (
+            <Pressable
+              style={styles.nextButton}
+              onPress={() => setSlide(slide + 1)}
+            >
+              <ThemedText style={styles.nextButtonText}>Next</ThemedText>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.startButton} onPress={onDismiss}>
+              <ThemedText style={styles.startButtonText}>Let's Go</ThemedText>
+            </Pressable>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Main Screen
+export default function DopamineLabScreen() {
+  const insets = useSafeAreaInsets();
+  const [todayData, setTodayData] = useState<HabitState>({});
+  const [weeklyData, setWeeklyData] = useState<DailyData[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const todayScore = Object.values(todayData).filter(Boolean).length;
+
+  // Load data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [intro, data] = await Promise.all([
+          AsyncStorage.getItem(DOPAMINE_INTRO_KEY),
+          AsyncStorage.getItem(DOPAMINE_STORAGE_KEY),
+        ]);
+
+        if (!intro) {
+          setShowOnboarding(true);
+        }
+
+        if (data) {
+          const parsed = JSON.parse(data);
+          setWeeklyData(parsed.weekly || []);
+
+          const todayEntry = parsed.weekly?.find(
+            (d: DailyData) => d.date === today
+          );
+          if (todayEntry) {
+            setTodayData(todayEntry.habits);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load dopamine data:", error);
+      }
+    };
+
+    loadData();
+  }, [today]);
+
+  // Save data
+  const saveData = useCallback(
+    async (newHabits: HabitState) => {
+      try {
+        setTodayData(newHabits);
+
+        const updatedWeekly = weeklyData.filter((d) => d.date !== today);
+        const todayEntry: DailyData = {
+          date: today,
+          habits: newHabits,
+          score: Object.values(newHabits).filter(Boolean).length,
+        };
+        updatedWeekly.push(todayEntry);
+
+        // Keep only last 30 days
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 30);
+        const filtered = updatedWeekly.filter(
+          (d) => new Date(d.date) >= cutoff
+        );
+
+        await AsyncStorage.setItem(
+          DOPAMINE_STORAGE_KEY,
+          JSON.stringify({ weekly: filtered })
+        );
+        setWeeklyData(filtered);
+      } catch (error) {
+        console.error("Failed to save dopamine data:", error);
+      }
+    },
+    [today, weeklyData]
+  );
+
+  const handleHabitToggle = (habitId: string) => {
+    const newHabits = {
+      ...todayData,
+      [habitId]: !todayData[habitId],
+    };
+    saveData(newHabits);
+  };
+
+  const handleOnboardingDismiss = async () => {
+    setShowOnboarding(false);
+    await AsyncStorage.setItem(DOPAMINE_INTRO_KEY, "true");
+  };
+
+  return (
+    <ThemedView style={styles.root}>
       <ScrollView
+        scrollIndicatorInsets={{ right: 1 }}
         contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: headerHeight + Spacing.lg,
-            paddingBottom:
-              tabBarHeight + Spacing.xl + insetsBottom,
-          },
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header summary */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerIconRow}>
-            <View style={styles.headerIconBadge}>
-              <Feather
-                name="zap"
-                size={18}
-                color={EarthyColors.copper}
-              />
-            </View>
-            <ThemedText
-              style={[
-                styles.headerTag,
-                { color: t.textSecondary },
-              ]}
-            >
-              Aim for at least three ticks a day
-            </ThemedText>
-          </View>
-          <ThemedText
-            type="h3"
-            style={styles.headerTitle}
-          >
-            Natural dopamine, not endless scrolling
+        <HeaderSection
+          todayScore={todayScore}
+          maxScore={PREMIUM_HABITS.length}
+        />
+
+        <View style={styles.content}>
+          <ThemedText type="h2" style={styles.sectionTitle}>
+            Today's Habits
           </ThemedText>
-          <ThemedText
-            style={[
-              styles.headerText,
-              { color: t.textSecondary },
-            ]}
-          >
-            Tick what you genuinely did today across movement, light, sleep,
-            connection, stillness and learning. This is a quiet scoreboard for
-            the basics that actually move the needle.
-          </ThemedText>
-        </View>
 
-        {/* Score section */}
-        <View style={styles.scoreRow}>
-          <View
-            style={[
-              styles.scoreCircle,
-              { borderColor: EarthyColors.copper },
-            ]}
-          >
-            <ThemedText
-              style={[
-                styles.scoreNumber,
-                { color: EarthyColors.copper },
-              ]}
-            >
-              {score}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.scoreMax,
-                { color: t.textSecondary },
-              ]}
-            >
-              /{maxScore}
-            </ThemedText>
-          </View>
-          <View style={styles.scoreCopy}>
-            <ThemedText
-              style={[
-                styles.scoreLabel,
-                { color: t.text },
-              ]}
-            >
-              Today&apos;s natural rewards
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.scoreSub,
-                { color: t.textSecondary },
-              ]}
-            >
-              Target: {target} or more. The point is trend, not perfection.
-            </ThemedText>
-          </View>
-        </View>
-
-        {/* Checklist */}
-        <ThemedText
-          type="h4"
-          style={styles.sectionTitle}
-        >
-          Daily checklist
-        </ThemedText>
-
-        <View style={styles.checklist}>
-          {HABITS.map((habit) => {
-            const checked = localState[habit.id];
-            return (
-              <Pressable
+          <View style={styles.habitGrid}>
+            {PREMIUM_HABITS.map((habit, idx) => (
+              <HabitTile
                 key={habit.id}
-                style={[
-                  styles.checklistItem,
-                  {
-                    backgroundColor: checked
-                      ? `${EarthyColors.forestGreen}15`
-                      : t.backgroundSecondary,
-                    borderColor: checked
-                      ? EarthyColors.forestGreen
-                      : t.border,
-                    opacity: saveMutation.isPending
-                      ? 0.9
-                      : 1,
-                  },
-                ]}
-                onPress={() => toggleHabit(habit.id)}
-                disabled={saveMutation.isPending}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: checked
-                        ? EarthyColors.forestGreen
-                        : "transparent",
-                      borderColor: checked
-                        ? EarthyColors.forestGreen
-                        : t.border,
-                    },
-                  ]}
-                >
-                  {checked ? (
-                    <Animated.View
-                      entering={FadeIn.duration(140)}
-                    >
-                      <Feather
-                        name="check"
-                        size={16}
-                        color="#fff"
-                      />
-                    </Animated.View>
-                  ) : null}
-                </View>
-
-                <View style={styles.itemIcon}>
-                  <Feather
-                    name={habit.icon as any}
-                    size={20}
-                    color={
-                      checked
-                        ? EarthyColors.forestGreen
-                        : t.textSecondary
-                    }
-                  />
-                </View>
-
-                <View style={styles.itemContent}>
-                  <ThemedText
-                    style={[
-                      styles.itemLabel,
-                      {
-                        color: checked
-                          ? EarthyColors.forestGreen
-                          : t.text,
-                      },
-                    ]}
-                  >
-                    {habit.label}
-                  </ThemedText>
-                  <ThemedText
-                    style={[
-                      styles.itemDescription,
-                      { color: t.textSecondary },
-                    ]}
-                  >
-                    {habit.description}
-                  </ThemedText>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Insight and science */}
-        <View
-          style={[
-            styles.insightCard,
-            { backgroundColor: `${EarthyColors.copper}15` },
-          ]}
-        >
-          <Feather
-            name="target"
-            size={20}
-            color={EarthyColors.copper}
-          />
-          <View style={styles.insightContent}>
-            <ThemedText
-              type="h4"
-              style={{ color: EarthyColors.copper }}
-            >
-              Today&apos;s insight
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.insightText,
-                { color: t.text },
-              ]}
-            >
-              {insight}
-            </ThemedText>
+                habit={habit}
+                checked={todayData[habit.id] || false}
+                onToggle={() => handleHabitToggle(habit.id)}
+                index={idx}
+              />
+            ))}
           </View>
-        </View>
 
-        {scienceSnippet && (
-          <View
-            style={[
-              styles.scienceCard,
-              { backgroundColor: t.backgroundSecondary },
-            ]}
-          >
-            <View style={styles.scienceHeader}>
-              <View style={styles.scienceIconBadge}>
-                <Feather
-                  name="activity"
-                  size={16}
-                  color={EarthyColors.copper}
-                />
-              </View>
-              <ThemedText
-                style={[
-                  styles.scienceTitle,
-                  { color: t.text },
-                ]}
-              >
-                Science note for today
-              </ThemedText>
-            </View>
-            <ThemedText
-              style={[
-                styles.scienceText,
-                { color: t.textSecondary },
-              ]}
-            >
-              {scienceSnippet}
-            </ThemedText>
-          </View>
-        )}
+          <WeeklyTrendsGraph weeklyData={weeklyData} />
+
+          <ScienceCard />
+
+          <View style={styles.spacer} />
+        </View>
       </ScrollView>
+
+      <OnboardingModal
+        visible={showOnboarding}
+        onDismiss={handleOnboardingDismiss}
+      />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
+    backgroundColor: PremiumColors.backgroundMain,
   },
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
+  scrollContent: {
+    flexGrow: 1,
   },
-  content: {
+  header: {
     paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.lg,
   },
-  headerCard: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    backgroundColor: "#0000000d",
-    marginBottom: Spacing.xl,
-  },
-  headerIconRow: {
+  scoreContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: Spacing.sm,
+    gap: Spacing.lg,
   },
-  headerIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: `${EarthyColors.copper}20`,
-    marginRight: Spacing.sm,
-  },
-  headerTag: {
-    fontSize: 12,
-  },
-  headerTitle: {
-    marginBottom: Spacing.sm,
-  },
-  headerText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  scoreRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  scoreCircle: {
+  scoreRing: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    borderWidth: 4,
+    backgroundColor: "white",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: Spacing.md,
-    flexDirection: "row",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  scoreNumber: {
+  scoreValue: {
     fontSize: 32,
     fontWeight: "700",
-  },
-  scoreMax: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginLeft: 2,
-  },
-  scoreCopy: {
-    flex: 1,
+    color: PremiumColors.forestGreen,
   },
   scoreLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  scoreSub: {
-    fontSize: 13,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.md,
-  },
-  checklist: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
-  checklistItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    borderWidth: 1,
-    gap: Spacing.sm,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  itemIcon: {
-    width: 32,
-    alignItems: "center",
-  },
-  itemContent: {
-    flex: 1,
-  },
-  itemLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  itemDescription: {
     fontSize: 12,
-    marginTop: 2,
+    color: PremiumColors.textSecondary,
   },
-  insightCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.md,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
-  },
-  insightContent: {
+  scoreInfo: {
     flex: 1,
   },
-  insightText: {
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: Spacing.xs,
+  progressBar: {
+    height: 6,
+    backgroundColor: PremiumColors.forestGreen,
+    borderRadius: 3,
+    marginVertical: Spacing.sm,
   },
-  scienceCard: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.xl,
+  progressPercent: {
+    fontSize: 12,
+    color: PremiumColors.textSecondary,
   },
-  scienceHeader: {
+  quoteCard: {
     flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
-    marginBottom: Spacing.xs,
+    gap: Spacing.sm,
   },
-  scienceIconBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: `${EarthyColors.copper}25`,
-    marginRight: Spacing.xs,
+  quoteIcon: {
+    marginTop: -4,
   },
-  scienceTitle: {
+  quoteText: {
+    flex: 1,
     fontSize: 13,
-    fontWeight: "600",
-  },
-  scienceText: {
-    fontSize: 13,
+    fontWeight: "500",
+    color: PremiumColors.textPrimary,
     lineHeight: 20,
-  },
-});
-import React, {
-  useMemo,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { ProGate } from "@/components/ProGate";
-import { useTheme } from "@/hooks/useTheme";
-import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
-import {
-  Spacing,
-  BorderRadius,
-  EarthyColors,
-} from "@/constants/theme";
-import type { DopamineEntry } from "@shared/schema";
-
-type HabitId =
-  | "movedBody"
-  | "daylight"
-  | "social"
-  | "creative"
-  | "music"
-  | "learning"
-  | "coldExposure"
-  | "protectedSleep"
-  | "stillness"
-  | "natureTime";
-
-type HabitConfig = {
-  id: HabitId;
-  label: string;
-  icon: string;
-  description: string;
-  scienceKey: string;
-};
-
-// We map some UI habits onto the same underlying fields for now
-// so we do not have to change the shared schema yet:
-// - stillness -> treated as "creative" in data layer for now
-// - natureTime -> treated as "daylight" in data layer for now
-const HABITS: HabitConfig[] = [
-  {
-    id: "movedBody",
-    label: "Moved your body",
-    icon: "activity",
-    description: "Any exercise or walk that raised your heart rate a little.",
-    scienceKey: "movement",
-  },
-  {
-    id: "daylight",
-    label: "Morning light",
-    icon: "sunrise",
-    description: "At least a few minutes of outside light before noon.",
-    scienceKey: "light",
-  },
-  {
-    id: "social",
-    label: "Real connection",
-    icon: "users",
-    description: "A genuine chat, call or time with someone you care about.",
-    scienceKey: "social",
-  },
-  {
-    id: "creative",
-    label: "Created something",
-    icon: "edit-3",
-    description: "Wrote, designed, built or made progress on a project.",
-    scienceKey: "creative",
-  },
-  {
-    id: "music",
-    label: "Intentional music",
-    icon: "music",
-    description: "Listened or played, not just background noise.",
-    scienceKey: "music",
-  },
-  {
-    id: "learning",
-    label: "Learnt something",
-    icon: "book-open",
-    description: "Read, watched or practised something new.",
-    scienceKey: "learning",
-  },
-  {
-    id: "coldExposure",
-    label: "Cold reset",
-    icon: "droplet",
-    description: "Cold shower or similar that shifted your state.",
-    scienceKey: "cold",
-  },
-  {
-    id: "protectedSleep",
-    label: "Protected sleep",
-    icon: "moon",
-    description: "Tried to keep a consistent sleep window.",
-    scienceKey: "sleep",
-  },
-  {
-    id: "stillness",
-    label: "Stillness / prayer",
-    icon: "heart",
-    description:
-      "Meditation, breathwork, prayer or quiet reflection, even for a few minutes.",
-    scienceKey: "meditation",
-  },
-  {
-    id: "natureTime",
-    label: "Time in nature",
-    icon: "feather",
-    description:
-      "Park, trees, water or any place that felt more natural than digital.",
-    scienceKey: "nature",
-  },
-];
-
-type LocalState = {
-  movedBody: boolean;
-  daylight: boolean;
-  social: boolean;
-  creative: boolean;
-  music: boolean;
-  learning: boolean;
-  coldExposure: boolean;
-  protectedSleep: boolean;
-  stillness: boolean;
-  natureTime: boolean;
-};
-
-function emptyLocal(): LocalState {
-  return {
-    movedBody: false,
-    daylight: false,
-    social: false,
-    creative: false,
-    music: false,
-    learning: false,
-    coldExposure: false,
-    protectedSleep: false,
-    stillness: false,
-    natureTime: false,
-  };
-}
-
-const SCIENCE_SNIPPETS: Record<string, string> = {
-  movement:
-    "Regular movement increases dopamine receptor sensitivity over time, which can improve motivation rather than just give a short spike.",
-  light:
-    "Morning daylight helps set your circadian rhythm, anchoring cortisol and dopamine to a more stable daily pattern.",
-  social:
-    "Quality social connection activates dopamine and oxytocin systems together, which is linked to better resilience and lower stress.",
-  creative:
-    "Creative work often produces small, repeated dopamine pulses as you solve problems or make progress, which is healthier than one big hit.",
-  music:
-    "Music can modulate dopamine release in reward pathways and is used in clinical settings to support mood and movement.",
-  learning:
-    "Learning something new increases dopamine in response to novelty and prediction error, reinforcing curiosity and progress.",
-  cold:
-    "Short controlled cold exposure can trigger a significant, lasting increase in dopamine and noradrenaline, improving focus for hours.",
-  sleep:
-    "Consistent sleep supports the overnight reset of dopamine receptors and reduces the craving for quick digital hits.",
-  meditation:
-    "Meditation and prayer practices can reduce baseline stress signalling, making your natural dopamine peaks feel clearer and more rewarding.",
-  nature:
-    "Time in natural spaces is linked to lower stress hormones and improved mood, which supports a healthier dopamine baseline.",
-};
-
-export default function DopamineLabScreen() {
-  return (
-    <ProGate feature="dopamineLab" featureName="Dopamine Lab">
-      <DopamineLabContent />
-    </ProGate>
-  );
-}
-
-function DopamineLabContent() {
-  const { theme } = useTheme();
-  const { user } = useAuth();
-  const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
-  const tabBarHeight = useBottomTabBarHeight();
-  const queryClient = useQueryClient();
-
-  const [localState, setLocalState] = useState<LocalState>(emptyLocal());
-
-  const { data: todayEntry, isLoading } =
-    useQuery<DopamineEntry | null>({
-      queryKey: ["/api/dopamine/today"],
-      enabled: !!user,
-    });
-
-  // Seed local state from server on first load and when server data changes
-  useEffect(() => {
-    if (!todayEntry) {
-      setLocalState(emptyLocal());
-      return;
-    }
-
-    setLocalState((prev) => ({
-      ...prev,
-      movedBody: Boolean(
-        (todayEntry as any).movedBody ?? prev.movedBody,
-      ),
-      daylight: Boolean(
-        (todayEntry as any).daylight ?? prev.daylight,
-      ),
-      social: Boolean(
-        (todayEntry as any).social ?? prev.social,
-      ),
-      creative: Boolean(
-        (todayEntry as any).creative ?? prev.creative,
-      ),
-      music: Boolean(
-        (todayEntry as any).music ?? prev.music,
-      ),
-      learning: Boolean(
-        (todayEntry as any).learning ?? prev.learning,
-      ),
-      coldExposure: Boolean(
-        (todayEntry as any).coldExposure ??
-          prev.coldExposure,
-      ),
-      protectedSleep: Boolean(
-        (todayEntry as any).protectedSleep ??
-          prev.protectedSleep,
-      ),
-      // stillness and natureTime are mapped into creative/daylight
-      stillness: Boolean(
-        (todayEntry as any).creative ??
-          prev.stillness,
-      ),
-      natureTime: Boolean(
-        (todayEntry as any).daylight ??
-          prev.natureTime,
-      ),
-    }));
-  }, [todayEntry]);
-
-  const saveMutation = useMutation({
-    mutationFn: async (nextState: LocalState) => {
-      // Map UI state back into the existing backend fields for now
-      const payload = {
-        movedBody: nextState.movedBody,
-        daylight:
-          nextState.daylight || nextState.natureTime,
-        social: nextState.social,
-        creative:
-          nextState.creative || nextState.stillness,
-        music: nextState.music,
-        learning: nextState.learning,
-        coldExposure: nextState.coldExposure,
-        protectedSleep: nextState.protectedSleep,
-      };
-
-      return apiRequest("POST", "/api/dopamine", payload);
-    },
-    onMutate: async (nextState: LocalState) => {
-      await queryClient.cancelQueries({
-        queryKey: ["/api/dopamine/today"],
-      });
-      // Optimistically reflect the local state
-      setLocalState(nextState);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/dopamine/today"],
-      });
-    },
-  });
-
-  const toggleHabit = (id: HabitId) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(
-        Haptics.ImpactFeedbackStyle.Light,
-      );
-    }
-
-    setLocalState((prev) => {
-      const next = {
-        ...prev,
-        [id]: !prev[id],
-      } as LocalState;
-      saveMutation.mutate(next);
-      return next;
-    });
-  };
-
-  const score = useMemo(() => {
-    return HABITS.reduce(
-      (total, habit) =>
-        localState[habit.id] ? total + 1 : total,
-      0,
-    );
-  }, [localState]);
-
-  const target = 3;
-  const maxScore = HABITS.length;
-
-  const insight = useMemo(() => {
-    if (score === 0) {
-      return "Start by aiming for any one habit today. The goal is consistency, not a perfect board.";
-    }
-    if (score < target) {
-      return "Nice work. You are on the board. See if you can nudge it to three habits most days.";
-    }
-    if (score === target) {
-      return "You have hit the daily target. Anything above this is bonus, not pressure.";
-    }
-    if (score < maxScore) {
-      return "Strong day. Make sure it still feels sustainable and not like a checklist you have to clear.";
-    }
-    return "You ticked everything. Brilliant, but keep an eye on rest so this stays enjoyable.";
-  }, [score, target, maxScore]);
-
-  const scienceKeyForToday = useMemo(() => {
-    if (score === 0) return null;
-    const activeKeys = HABITS.filter(
-      (h) => localState[h.id],
-    ).map((h) => h.scienceKey);
-    if (activeKeys.length === 0) return null;
-    // Simple deterministic pick from active habits
-    const index =
-      new Date().getDate() % activeKeys.length;
-    return activeKeys[index];
-  }, [localState, score]);
-
-  const scienceSnippet =
-    scienceKeyForToday &&
-    SCIENCE_SNIPPETS[scienceKeyForToday];
-
-  const { theme: t } = { theme };
-
-  const insetsBottom = insets.bottom;
-
-  if (!user) {
-    return (
-      <ThemedView
-        style={[
-          styles.container,
-          styles.loadingContainer,
-          {
-            paddingTop: insets.top,
-            paddingBottom: insetsBottom,
-          },
-        ]}
-      >
-        <ThemedText>
-          Please sign in to use Dopamine Lab.
-        </ThemedText>
-      </ThemedView>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <ThemedView
-        style={[
-          styles.container,
-          styles.loadingContainer,
-          {
-            paddingTop: insets.top,
-            paddingBottom: insetsBottom,
-          },
-        ]}
-      >
-        <ActivityIndicator
-          size="large"
-          color={t.primary}
-        />
-      </ThemedView>
-    );
-  }
-
-  return (
-    <ThemedView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: headerHeight + Spacing.lg,
-            paddingBottom:
-              tabBarHeight + Spacing.xl + insetsBottom,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header summary */}
-        <View style={styles.headerCard}>
-          <View style={styles.headerIconRow}>
-            <View style={styles.headerIconBadge}>
-              <Feather
-                name="zap"
-                size={18}
-                color={EarthyColors.copper}
-              />
-            </View>
-            <ThemedText
-              style={[
-                styles.headerTag,
-                { color: t.textSecondary },
-              ]}
-            >
-              Aim for at least three ticks a day
-            </ThemedText>
-          </View>
-          <ThemedText
-            type="h3"
-            style={styles.headerTitle}
-          >
-            Natural dopamine, not endless scrolling
-          </ThemedText>
-          <ThemedText
-            style={[
-              styles.headerText,
-              { color: t.textSecondary },
-            ]}
-          >
-            Tick what you genuinely did today across movement, light, sleep,
-            connection, stillness and learning. This is a quiet scoreboard for
-            the basics that actually move the needle.
-          </ThemedText>
-        </View>
-
-        {/* Score section */}
-        <View style={styles.scoreRow}>
-          <View
-            style={[
-              styles.scoreCircle,
-              { borderColor: EarthyColors.copper },
-            ]}
-          >
-            <ThemedText
-              style={[
-                styles.scoreNumber,
-                { color: EarthyColors.copper },
-              ]}
-            >
-              {score}
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.scoreMax,
-                { color: t.textSecondary },
-              ]}
-            >
-              /{maxScore}
-            </ThemedText>
-          </View>
-          <View style={styles.scoreCopy}>
-            <ThemedText
-              style={[
-                styles.scoreLabel,
-                { color: t.text },
-              ]}
-            >
-              Today&apos;s natural rewards
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.scoreSub,
-                { color: t.textSecondary },
-              ]}
-            >
-              Target: {target} or more. The point is trend, not perfection.
-            </ThemedText>
-          </View>
-        </View>
-
-        {/* Checklist */}
-        <ThemedText
-          type="h4"
-          style={styles.sectionTitle}
-        >
-          Daily checklist
-        </ThemedText>
-
-        <View style={styles.checklist}>
-          {HABITS.map((habit) => {
-            const checked = localState[habit.id];
-            return (
-              <Pressable
-                key={habit.id}
-                style={[
-                  styles.checklistItem,
-                  {
-                    backgroundColor: checked
-                      ? `${EarthyColors.forestGreen}15`
-                      : t.backgroundSecondary,
-                    borderColor: checked
-                      ? EarthyColors.forestGreen
-                      : t.border,
-                    opacity: saveMutation.isPending
-                      ? 0.9
-                      : 1,
-                  },
-                ]}
-                onPress={() => toggleHabit(habit.id)}
-                disabled={saveMutation.isPending}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    {
-                      backgroundColor: checked
-                        ? EarthyColors.forestGreen
-                        : "transparent",
-                      borderColor: checked
-                        ? EarthyColors.forestGreen
-                        : t.border,
-                    },
-                  ]}
-                >
-                  {checked ? (
-                    <Animated.View
-                      entering={FadeIn.duration(140)}
-                    >
-                      <Feather
-                        name="check"
-                        size={16}
-                        color="#fff"
-                      />
-                    </Animated.View>
-                  ) : null}
-                </View>
-
-                <View style={styles.itemIcon}>
-                  <Feather
-                    name={habit.icon as any}
-                    size={20}
-                    color={
-                      checked
-                        ? EarthyColors.forestGreen
-                        : t.textSecondary
-                    }
-                  />
-                </View>
-
-                <View style={styles.itemContent}>
-                  <ThemedText
-                    style={[
-                      styles.itemLabel,
-                      {
-                        color: checked
-                          ? EarthyColors.forestGreen
-                          : t.text,
-                      },
-                    ]}
-                  >
-                    {habit.label}
-                  </ThemedText>
-                  <ThemedText
-                    style={[
-                      styles.itemDescription,
-                      { color: t.textSecondary },
-                    ]}
-                  >
-                    {habit.description}
-                  </ThemedText>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Insight and science */}
-        <View
-          style={[
-            styles.insightCard,
-            { backgroundColor: `${EarthyColors.copper}15` },
-          ]}
-        >
-          <Feather
-            name="target"
-            size={20}
-            color={EarthyColors.copper}
-          />
-          <View style={styles.insightContent}>
-            <ThemedText
-              type="h4"
-              style={{ color: EarthyColors.copper }}
-            >
-              Today&apos;s insight
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.insightText,
-                { color: t.text },
-              ]}
-            >
-              {insight}
-            </ThemedText>
-          </View>
-        </View>
-
-        {scienceSnippet && (
-          <View
-            style={[
-              styles.scienceCard,
-              { backgroundColor: t.backgroundSecondary },
-            ]}
-          >
-            <View style={styles.scienceHeader}>
-              <View style={styles.scienceIconBadge}>
-                <Feather
-                  name="activity"
-                  size={16}
-                  color={EarthyColors.copper}
-                />
-              </View>
-              <ThemedText
-                style={[
-                  styles.scienceTitle,
-                  { color: t.text },
-                ]}
-              >
-                Science note for today
-              </ThemedText>
-            </View>
-            <ThemedText
-              style={[
-                styles.scienceText,
-                { color: t.textSecondary },
-              ]}
-            >
-              {scienceSnippet}
-            </ThemedText>
-          </View>
-        )}
-      </ScrollView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    justifyContent: "center",
-    alignItems: "center",
   },
   content: {
     paddingHorizontal: Spacing.lg,
-  },
-  headerCard: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    backgroundColor: "#0000000d",
-    marginBottom: Spacing.xl,
-  },
-  headerIconRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  headerIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: `${EarthyColors.copper}20`,
-    marginRight: Spacing.sm,
-  },
-  headerTag: {
-    fontSize: 12,
-  },
-  headerTitle: {
-    marginBottom: Spacing.sm,
-  },
-  headerText: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  scoreRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  scoreCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    borderWidth: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: Spacing.md,
-    flexDirection: "row",
-  },
-  scoreNumber: {
-    fontSize: 32,
-    fontWeight: "700",
-  },
-  scoreMax: {
-    fontSize: 16,
-    fontWeight: "500",
-    marginLeft: 2,
-  },
-  scoreCopy: {
-    flex: 1,
-  },
-  scoreLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  scoreSub: {
-    fontSize: 13,
+    gap: Spacing.xl,
   },
   sectionTitle: {
-    marginBottom: Spacing.md,
+    marginTop: Spacing.lg,
+    color: PremiumColors.textPrimary,
   },
-  checklist: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
+  habitGrid: {
+    gap: Spacing.md,
   },
-  checklistItem: {
+  habitTile: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: BorderRadius.md,
     padding: Spacing.md,
-    borderRadius: BorderRadius.sm,
     borderWidth: 1,
-    gap: Spacing.sm,
+    borderColor: PremiumColors.borderLight,
+    gap: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
+  habitTileChecked: {
+    backgroundColor: PremiumColors.forestGreen + "08",
+    borderColor: PremiumColors.forestGreen,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: PremiumColors.copperOrange + "15",
     justifyContent: "center",
     alignItems: "center",
   },
-  itemIcon: {
-    width: 32,
+  iconCircleChecked: {
+    backgroundColor: PremiumColors.forestGreen,
+  },
+  habitContent: {
+    flex: 1,
+  },
+  habitLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: PremiumColors.textPrimary,
+    marginBottom: 2,
+  },
+  habitDescription: {
+    fontSize: 12,
+    color: PremiumColors.textSecondary,
+  },
+  checkmark: {
+    width: 24,
+    height: 24,
+    justifyContent: "center",
     alignItems: "center",
   },
-  itemContent: {
-    flex: 1,
-  },
-  itemLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-  },
-  itemDescription: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  insightCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  trendContainer: {
     gap: Spacing.md,
-    padding: Spacing.lg,
+    marginTop: Spacing.lg,
+  },
+  trendTitle: {
+    color: PremiumColors.textPrimary,
+  },
+  graphContainer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-around",
+    height: 150,
+    backgroundColor: "white",
     borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  insightContent: {
+  barWrapper: {
+    alignItems: "center",
     flex: 1,
+    justifyContent: "flex-end",
+    height: "100%",
+    gap: Spacing.sm,
   },
-  insightText: {
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: Spacing.xs,
+  bar: {
+    width: "80%",
+    minHeight: 8,
+  },
+  dayLabel: {
+    fontSize: 11,
+    color: PremiumColors.textSecondary,
   },
   scienceCard: {
-    padding: Spacing.lg,
+    backgroundColor: "white",
     borderRadius: BorderRadius.md,
-    marginBottom: Spacing.xl,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: PremiumColors.borderLight,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   scienceHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: Spacing.xs,
+    padding: Spacing.md,
   },
-  scienceIconBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: "center",
+  scienceTitleRow: {
+    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: `${EarthyColors.copper}25`,
-    marginRight: Spacing.xs,
+    gap: Spacing.sm,
+    flex: 1,
   },
   scienceTitle: {
+    flex: 1,
+    color: PremiumColors.textPrimary,
+  },
+  scienceContent: {
+    maxHeight: 400,
+  },
+  scienceContentInner: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  scienceItem: {
+    gap: Spacing.xs,
+  },
+  scienceHabitName: {
+    fontWeight: "600",
+    color: PremiumColors.forestGreen,
     fontSize: 13,
+  },
+  scienceExplanation: {
+    fontSize: 12,
+    color: PremiumColors.textSecondary,
+    lineHeight: 18,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalIcon: {
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    marginBottom: Spacing.sm,
+    color: PremiumColors.textPrimary,
+  },
+  modalDescription: {
+    textAlign: "center",
+    color: PremiumColors.textSecondary,
+    marginBottom: Spacing.lg,
+    lineHeight: 20,
+  },
+  slideIndicators: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  indicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: PremiumColors.borderLight,
+  },
+  indicatorActive: {
+    backgroundColor: PremiumColors.forestGreen,
+    width: 24,
+  },
+  modalButtons: {
+    width: "100%",
+  },
+  nextButton: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: PremiumColors.skyBlue,
+    borderRadius: BorderRadius.sm,
+  },
+  nextButtonText: {
+    textAlign: "center",
+    color: "white",
     fontWeight: "600",
   },
-  scienceText: {
-    fontSize: 13,
-    lineHeight: 20,
+  startButton: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: PremiumColors.forestGreen,
+    borderRadius: BorderRadius.sm,
+  },
+  startButtonText: {
+    textAlign: "center",
+    color: "white",
+    fontWeight: "600",
+  },
+  spacer: {
+    height: Spacing.lg,
   },
 });

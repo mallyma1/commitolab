@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Modal, Pressable, ScrollView, TextInput } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Modal,
+  Pressable,
+  ScrollView,
+  TextInput,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
-import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutLeft } from "react-native-reanimated";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInRight,
+  SlideOutLeft,
+} from "react-native-reanimated";
 import { ThemedText } from "./ThemedText";
 import { Button } from "./Button";
 import { Card } from "./Card";
@@ -28,25 +40,29 @@ const CONCERNS = [
 const SCIENCE_FACTS = [
   {
     title: "The 66-Day Truth",
-    description: "Research shows habits take an average of 66 days to form. Most people quit at day 21, just when the brain is starting to rewire.",
+    description:
+      "Research shows habits take an average of 66 days to form. Most people quit at day 21, just when the brain is starting to rewire.",
     icon: "cpu",
     source: "University College London",
   },
   {
     title: "Loss Aversion is Real",
-    description: "Your brain weighs losses 2x more than gains. Breaking a streak feels worse than starting one feels good. Use this psychology to your advantage.",
+    description:
+      "Your brain weighs losses 2x more than gains. Breaking a streak feels worse than starting one feels good. Use this psychology to your advantage.",
     icon: "alert-triangle",
     source: "Kahneman & Tversky",
   },
   {
     title: "The Compound Effect",
-    description: "Small daily actions compound exponentially. 1% better each day = 37x better in a year. Your streak is building something bigger than you see.",
+    description:
+      "Small daily actions compound exponentially. 1% better each day = 37x better in a year. Your streak is building something bigger than you see.",
     icon: "trending-up",
     source: "Darren Hardy",
   },
   {
     title: "Identity Shapes Behavior",
-    description: "Every check-in is a vote for the person you want to become. You're not just tracking habits, you're building proof of who you are.",
+    description:
+      "Every check-in is a vote for the person you want to become. You're not just tracking habits, you're building proof of who you are.",
     icon: "user-check",
     source: "James Clear, Atomic Habits",
   },
@@ -121,8 +137,7 @@ export function ChurnPreventionModal({
             answers: surveyAnswers,
           }),
         });
-      } catch {
-      }
+      } catch {}
     }
     setStep(1);
     setSelectedConcern(null);
@@ -131,16 +146,23 @@ export function ChurnPreventionModal({
   };
 
   const renderStep1 = () => (
-    <Animated.View entering={FadeIn} exiting={SlideOutLeft} style={styles.stepContainer}>
+    <Animated.View
+      entering={FadeIn}
+      exiting={SlideOutLeft}
+      style={styles.stepContainer}
+    >
       <View style={styles.header}>
-        <View style={[styles.iconCircle, { backgroundColor: `${theme.primary}20` }]}>
+        <View
+          style={[styles.iconCircle, { backgroundColor: `${theme.primary}20` }]}
+        >
           <Feather name="heart" size={32} color={theme.primary} />
         </View>
         <ThemedText type="h3" style={styles.title}>
           This isn't working out?
         </ThemedText>
         <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
-          We hear you. Building habits is hard. Before you go, help us understand what's happening.
+          We hear you. Building habits is hard. Before you go, help us
+          understand what's happening.
         </ThemedText>
       </View>
 
@@ -151,8 +173,12 @@ export function ChurnPreventionModal({
             style={[
               styles.concernItem,
               {
-                borderColor: selectedConcern === concern.id ? theme.primary : theme.border,
-                backgroundColor: selectedConcern === concern.id ? `${theme.primary}10` : theme.backgroundDefault,
+                borderColor:
+                  selectedConcern === concern.id ? theme.primary : theme.border,
+                backgroundColor:
+                  selectedConcern === concern.id
+                    ? `${theme.primary}10`
+                    : theme.backgroundDefault,
               },
             ]}
             onPress={() => setSelectedConcern(concern.id)}
@@ -160,7 +186,11 @@ export function ChurnPreventionModal({
             <Feather
               name={concern.icon}
               size={20}
-              color={selectedConcern === concern.id ? theme.primary : theme.textSecondary}
+              color={
+                selectedConcern === concern.id
+                  ? theme.primary
+                  : theme.textSecondary
+              }
             />
             <ThemedText style={styles.concernLabel}>{concern.label}</ThemedText>
             {selectedConcern === concern.id ? (
@@ -182,7 +212,9 @@ export function ChurnPreventionModal({
           style={[styles.secondaryButton, { borderColor: theme.border }]}
           onPress={handleClose}
         >
-          <ThemedText style={[styles.secondaryButtonText, { color: theme.text }]}>
+          <ThemedText
+            style={[styles.secondaryButtonText, { color: theme.text }]}
+          >
             Never mind
           </ThemedText>
         </Pressable>
@@ -191,31 +223,60 @@ export function ChurnPreventionModal({
   );
 
   const renderStep2 = () => (
-    <Animated.View entering={SlideInRight} exiting={SlideOutLeft} style={styles.stepContainer}>
+    <Animated.View
+      entering={SlideInRight}
+      exiting={SlideOutLeft}
+      style={styles.stepContainer}
+    >
       <View style={styles.header}>
-        <View style={[styles.iconCircle, { backgroundColor: `${theme.accent}20` }]}>
+        <View
+          style={[styles.iconCircle, { backgroundColor: `${theme.accent}20` }]}
+        >
           <Feather name="zap" size={32} color={theme.accent} />
         </View>
         <ThemedText type="h3" style={styles.title}>
           The science says: don't quit yet
         </ThemedText>
         <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Your brain is designed to make this hard. Here's what research tells us about building lasting habits.
+          Your brain is designed to make this hard. Here's what research tells
+          us about building lasting habits.
         </ThemedText>
       </View>
 
-      <ScrollView style={styles.scienceScroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scienceScroll}
+        showsVerticalScrollIndicator={false}
+      >
         {SCIENCE_FACTS.map((fact, index) => (
           <Card key={index} style={styles.scienceCard}>
-            <View style={[styles.scienceIcon, { backgroundColor: `${theme.primary}15` }]}>
-              <Feather name={fact.icon as any} size={20} color={theme.primary} />
+            <View
+              style={[
+                styles.scienceIcon,
+                { backgroundColor: `${theme.primary}15` },
+              ]}
+            >
+              <Feather
+                name={fact.icon as any}
+                size={20}
+                color={theme.primary}
+              />
             </View>
             <View style={styles.scienceContent}>
               <ThemedText style={styles.scienceTitle}>{fact.title}</ThemedText>
-              <ThemedText style={[styles.scienceDescription, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[
+                  styles.scienceDescription,
+                  { color: theme.textSecondary },
+                ]}
+              >
                 {fact.description}
               </ThemedText>
-              <ThemedText style={[styles.scienceSource, { color: theme.textSecondary, opacity: 0.7 }]}>
+              <ThemedText
+                style={[
+                  styles.scienceSource,
+                  { color: theme.textSecondary, opacity: 0.7 },
+                ]}
+              >
                 {fact.source}
               </ThemedText>
             </View>
@@ -223,13 +284,23 @@ export function ChurnPreventionModal({
         ))}
       </ScrollView>
 
-      {(streakCount > 0 || checkInsCount > 0) ? (
-        <Card style={{ ...styles.statsReminder, backgroundColor: `${theme.primary}10` }}>
+      {streakCount > 0 || checkInsCount > 0 ? (
+        <Card
+          style={{
+            ...styles.statsReminder,
+            backgroundColor: `${theme.primary}10`,
+          }}
+        >
           <Feather name="award" size={24} color={theme.primary} />
           <View style={styles.statsText}>
-            <ThemedText style={styles.statsLabel}>You've built something here</ThemedText>
-            <ThemedText style={[styles.statsValue, { color: theme.textSecondary }]}>
-              {checkInsCount} check-ins{streakCount > 0 ? ` and a ${streakCount}-day streak` : ""}
+            <ThemedText style={styles.statsLabel}>
+              You've built something here
+            </ThemedText>
+            <ThemedText
+              style={[styles.statsValue, { color: theme.textSecondary }]}
+            >
+              {checkInsCount} check-ins
+              {streakCount > 0 ? ` and a ${streakCount}-day streak` : ""}
             </ThemedText>
           </View>
         </Card>
@@ -243,7 +314,9 @@ export function ChurnPreventionModal({
           style={[styles.secondaryButton, { borderColor: theme.border }]}
           onPress={handleStillWantToLeave}
         >
-          <ThemedText style={[styles.secondaryButtonText, { color: theme.text }]}>
+          <ThemedText
+            style={[styles.secondaryButtonText, { color: theme.text }]}
+          >
             I still want to leave
           </ThemedText>
         </Pressable>
@@ -252,27 +325,41 @@ export function ChurnPreventionModal({
   );
 
   const renderStep3 = () => (
-    <Animated.View entering={SlideInRight} exiting={FadeOut} style={styles.stepContainer}>
+    <Animated.View
+      entering={SlideInRight}
+      exiting={FadeOut}
+      style={styles.stepContainer}
+    >
       <View style={styles.header}>
-        <View style={[styles.iconCircle, { backgroundColor: `${theme.error}20` }]}>
+        <View
+          style={[styles.iconCircle, { backgroundColor: `${theme.error}20` }]}
+        >
           <Feather name="alert-circle" size={32} color={theme.error} />
         </View>
         <ThemedText type="h3" style={styles.title}>
           Are you absolutely sure?
         </ThemedText>
         <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
-          This action cannot be undone. All your data, streaks, and progress will be permanently deleted.
+          This action cannot be undone. All your data, streaks, and progress
+          will be permanently deleted.
         </ThemedText>
       </View>
 
       {!surveyFailed && exitSurveyQuestions.length > 0 ? (
-        <ScrollView style={styles.surveyScroll} showsVerticalScrollIndicator={false}>
-          <ThemedText style={[styles.surveyLabel, { color: theme.textSecondary }]}>
+        <ScrollView
+          style={styles.surveyScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <ThemedText
+            style={[styles.surveyLabel, { color: theme.textSecondary }]}
+          >
             Before you go, help us improve (optional):
           </ThemedText>
           {exitSurveyQuestions.map((question, idx) => (
             <View key={idx} style={styles.surveyQuestion}>
-              <ThemedText style={styles.surveyQuestionText}>{question}</ThemedText>
+              <ThemedText style={styles.surveyQuestionText}>
+                {question}
+              </ThemedText>
               <TextInput
                 style={[
                   styles.surveyInput,
@@ -300,19 +387,25 @@ export function ChurnPreventionModal({
         <View style={styles.warningList}>
           <View style={styles.warningItem}>
             <Feather name="x-circle" size={16} color={theme.error} />
-            <ThemedText style={[styles.warningText, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.warningText, { color: theme.textSecondary }]}
+            >
               All your commitments and check-ins
             </ThemedText>
           </View>
           <View style={styles.warningItem}>
             <Feather name="x-circle" size={16} color={theme.error} />
-            <ThemedText style={[styles.warningText, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.warningText, { color: theme.textSecondary }]}
+            >
               Your streak history and statistics
             </ThemedText>
           </View>
           <View style={styles.warningItem}>
             <Feather name="x-circle" size={16} color={theme.error} />
-            <ThemedText style={[styles.warningText, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.warningText, { color: theme.textSecondary }]}
+            >
               Any uploaded photos and notes
             </ThemedText>
           </View>
@@ -344,7 +437,12 @@ export function ChurnPreventionModal({
       onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.container, { backgroundColor: theme.backgroundDefault }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: theme.backgroundDefault },
+          ]}
+        >
           <Pressable style={styles.closeButton} onPress={handleClose}>
             <Feather name="x" size={24} color={theme.textSecondary} />
           </Pressable>

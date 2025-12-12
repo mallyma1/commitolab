@@ -13,14 +13,30 @@ type Props = {
 
 const domainOptions = [
   { id: "fitness", label: "Fitness / movement", icon: "activity" as const },
-  { id: "nutrition", label: "Nutrition / eating habits", icon: "coffee" as const },
+  {
+    id: "nutrition",
+    label: "Nutrition / eating habits",
+    icon: "coffee" as const,
+  },
   { id: "sleep", label: "Sleep / recovery", icon: "moon" as const },
   { id: "focus", label: "Focus / deep work", icon: "target" as const },
-  { id: "sobriety", label: "Sobriety / harm reduction", icon: "shield" as const },
-  { id: "relationships", label: "Relationships / connection", icon: "heart" as const },
+  {
+    id: "sobriety",
+    label: "Sobriety / harm reduction",
+    icon: "shield" as const,
+  },
+  {
+    id: "relationships",
+    label: "Relationships / connection",
+    icon: "heart" as const,
+  },
   { id: "creativity", label: "Creative output", icon: "feather" as const },
   { id: "learning", label: "Learning / skill building", icon: "book" as const },
-  { id: "money", label: "Money / financial habits", icon: "dollar-sign" as const },
+  {
+    id: "money",
+    label: "Money / financial habits",
+    icon: "dollar-sign" as const,
+  },
   { id: "mindfulness", label: "Mindfulness / calm", icon: "sun" as const },
 ];
 
@@ -30,15 +46,20 @@ export function FocusDomainsScreen({ navigation }: Props) {
   const { payload, update } = useOnboardingContext();
 
   const toggleDomain = (domain: string) => {
-    const current = payload.focusDomains;
+    const current = payload.focusDomains ?? [];
     if (current.includes(domain)) {
-      update("focusDomains", current.filter((d) => d !== domain));
+      update(
+        "focusDomains",
+        current.filter((d: string) => d !== domain)
+      );
     } else if (current.length < 3) {
       update("focusDomains", [...current, domain]);
     }
   };
 
-  const canContinue = payload.focusDomains.length >= 1 && payload.focusDomains.length <= 3;
+  const canContinue =
+    (payload.focusDomains?.length ?? 0) >= 1 &&
+    (payload.focusDomains?.length ?? 0) <= 3;
 
   return (
     <View
@@ -51,7 +72,10 @@ export function FocusDomainsScreen({ navigation }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
@@ -63,7 +87,7 @@ export function FocusDomainsScreen({ navigation }: Props) {
 
         <View style={styles.domainGrid}>
           {domainOptions.map((domain) => {
-            const selected = payload.focusDomains.includes(domain.id);
+            const selected = (payload.focusDomains ?? []).includes(domain.id);
             return (
               <Pressable
                 key={domain.id}
@@ -71,17 +95,31 @@ export function FocusDomainsScreen({ navigation }: Props) {
                 style={[
                   styles.domainCard,
                   {
-                    backgroundColor: selected ? theme.primary + "15" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "15"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
               >
-                <View style={[styles.domainIcon, { backgroundColor: theme.primary + "20" }]}>
+                <View
+                  style={[
+                    styles.domainIcon,
+                    { backgroundColor: theme.primary + "20" },
+                  ]}
+                >
                   <Feather name={domain.icon} size={20} color={theme.primary} />
                 </View>
-                <ThemedText style={styles.domainLabel}>{domain.label}</ThemedText>
+                <ThemedText style={styles.domainLabel}>
+                  {domain.label}
+                </ThemedText>
                 {selected ? (
-                  <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
+                  <View
+                    style={[
+                      styles.checkBadge,
+                      { backgroundColor: theme.primary },
+                    ]}
+                  >
                     <Feather name="check" size={12} color="#fff" />
                   </View>
                 ) : null}

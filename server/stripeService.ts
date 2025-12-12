@@ -1,7 +1,6 @@
-import { storage } from './storage';
-import { getUncachableStripeClient } from './stripeClient';
-import { db } from './db';
-import { sql } from 'drizzle-orm';
+import { getUncachableStripeClient } from "./stripeClient";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 export class StripeService {
   async createCustomer(email: string, userId: string) {
@@ -12,13 +11,18 @@ export class StripeService {
     });
   }
 
-  async createCheckoutSession(customerId: string, priceId: string, successUrl: string, cancelUrl: string) {
+  async createCheckoutSession(
+    customerId: string,
+    priceId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ) {
     const stripe = await getUncachableStripeClient();
     return await stripe.checkout.sessions.create({
       customer: customerId,
-      payment_method_types: ['card'],
+      payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      mode: 'subscription',
+      mode: "subscription",
       success_url: successUrl,
       cancel_url: cancelUrl,
     });
@@ -34,14 +38,14 @@ export class StripeService {
 
   async getProduct(productId: string) {
     const result = await db.execute(
-      sql`SELECT * FROM stripe.products WHERE id = ${productId}`
+      sql`SELECT * FROM stripe.products WHERE id = ${productId}`,
     );
     return result.rows[0] || null;
   }
 
   async listProducts(active = true, limit = 20, offset = 0) {
     const result = await db.execute(
-      sql`SELECT * FROM stripe.products WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`
+      sql`SELECT * FROM stripe.products WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`,
     );
     return result.rows;
   }
@@ -71,35 +75,35 @@ export class StripeService {
         FROM paginated_products p
         LEFT JOIN stripe.prices pr ON pr.product = p.id AND pr.active = true
         ORDER BY p.id, pr.unit_amount
-      `
+      `,
     );
     return result.rows;
   }
 
   async getPrice(priceId: string) {
     const result = await db.execute(
-      sql`SELECT * FROM stripe.prices WHERE id = ${priceId}`
+      sql`SELECT * FROM stripe.prices WHERE id = ${priceId}`,
     );
     return result.rows[0] || null;
   }
 
   async listPrices(active = true, limit = 20, offset = 0) {
     const result = await db.execute(
-      sql`SELECT * FROM stripe.prices WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`
+      sql`SELECT * FROM stripe.prices WHERE active = ${active} LIMIT ${limit} OFFSET ${offset}`,
     );
     return result.rows;
   }
 
   async getPricesForProduct(productId: string) {
     const result = await db.execute(
-      sql`SELECT * FROM stripe.prices WHERE product = ${productId} AND active = true`
+      sql`SELECT * FROM stripe.prices WHERE product = ${productId} AND active = true`,
     );
     return result.rows;
   }
 
   async getSubscription(subscriptionId: string) {
     const result = await db.execute(
-      sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscriptionId}`
+      sql`SELECT * FROM stripe.subscriptions WHERE id = ${subscriptionId}`,
     );
     return result.rows[0] || null;
   }

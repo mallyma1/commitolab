@@ -1,16 +1,27 @@
 {
   "expo": {
-    "name": "Streak",
-    "slug": "streak-tracker",
+    "name": "Commito",
+    "slug": "commito",
+    "owner": "opsuma",
     "version": "1.0.0",
     "orientation": "portrait",
+    "extra": {
+      "eas": {
+        "projectId": "e94a1503-cb55-46cb-a06d-3959f2358d4d"
+      }
+    },
     "icon": "./assets/images/icon.png",
-    "scheme": "streak",
+    "scheme": "commito",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.streak.tracker"
+      "bundleIdentifier": "com.commito.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Commito needs camera access to capture photo proof for your commitments.",
+        "NSPhotoLibraryUsageDescription": "Commito needs photo library access to attach proof to your check-ins."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +32,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.streak.tracker"
+      "package": "com.commito.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "output": "single",

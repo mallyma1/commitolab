@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, FlatList, Pressable, Dimensions } from "react-native";
+import { View, StyleSheet, FlatList, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -12,7 +12,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
-import { useCheckIns, useCommitment, CheckIn, Commitment } from "@/hooks/useCommitments";
+import { useCheckIns, useCommitment, CheckIn } from "@/hooks/useCommitments";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -44,7 +44,10 @@ export default function CommitmentDetailScreen() {
 
   const daysRemaining = Math.max(
     0,
-    Math.ceil((new Date(commitment.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    Math.ceil(
+      (new Date(commitment.endDate).getTime() - Date.now()) /
+        (1000 * 60 * 60 * 24)
+    )
   );
 
   const formatDate = (dateString: string) => {
@@ -70,7 +73,9 @@ export default function CommitmentDetailScreen() {
       <Card style={styles.checkInCard}>
         <View style={styles.checkInHeader}>
           <Feather name="check-circle" size={20} color={theme.secondary} />
-          <ThemedText style={styles.checkInDate}>{formatDate(item.createdAt)}</ThemedText>
+          <ThemedText style={styles.checkInDate}>
+            {formatDate(item.createdAt)}
+          </ThemedText>
         </View>
         {photoUrl ? (
           <Image
@@ -80,7 +85,9 @@ export default function CommitmentDetailScreen() {
           />
         ) : null}
         {item.note ? (
-          <ThemedText style={[styles.checkInNote, { color: theme.textSecondary }]}>
+          <ThemedText
+            style={[styles.checkInNote, { color: theme.textSecondary }]}
+          >
             {item.note}
           </ThemedText>
         ) : null}
@@ -99,7 +106,12 @@ export default function CommitmentDetailScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: theme.primary + "20" }]}>
+            <View
+              style={[
+                styles.iconContainer,
+                { backgroundColor: theme.primary + "20" },
+              ]}
+            >
               <Feather
                 name={categoryIcons[commitment.category] || "target"}
                 size={32}
@@ -107,33 +119,61 @@ export default function CommitmentDetailScreen() {
               />
             </View>
             <ThemedText style={styles.title}>{commitment.title}</ThemedText>
-            <ThemedText style={[styles.category, { color: theme.textSecondary }]}>
-              {commitment.category.charAt(0).toUpperCase() + commitment.category.slice(1)} •{" "}
-              {commitment.cadence}
+            <ThemedText
+              style={[styles.category, { color: theme.textSecondary }]}
+            >
+              {commitment.category.charAt(0).toUpperCase() +
+                commitment.category.slice(1)}{" "}
+              • {commitment.cadence}
             </ThemedText>
 
             <View style={styles.statsRow}>
-              <View style={[styles.statBox, { backgroundColor: theme.backgroundDefault }]}>
-                <ThemedText style={[styles.statValue, { color: theme.primary }]}>
+              <View
+                style={[
+                  styles.statBox,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.statValue, { color: theme.primary }]}
+                >
                   {commitment.currentStreak}
                 </ThemedText>
-                <ThemedText style={[styles.statLabel, { color: theme.textSecondary }]}>
+                <ThemedText
+                  style={[styles.statLabel, { color: theme.textSecondary }]}
+                >
                   Current Streak
                 </ThemedText>
               </View>
-              <View style={[styles.statBox, { backgroundColor: theme.backgroundDefault }]}>
+              <View
+                style={[
+                  styles.statBox,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
                 <ThemedText style={[styles.statValue, { color: theme.accent }]}>
                   {commitment.longestStreak}
                 </ThemedText>
-                <ThemedText style={[styles.statLabel, { color: theme.textSecondary }]}>
+                <ThemedText
+                  style={[styles.statLabel, { color: theme.textSecondary }]}
+                >
                   Best Streak
                 </ThemedText>
               </View>
-              <View style={[styles.statBox, { backgroundColor: theme.backgroundDefault }]}>
-                <ThemedText style={[styles.statValue, { color: theme.secondary }]}>
+              <View
+                style={[
+                  styles.statBox,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.statValue, { color: theme.secondary }]}
+                >
                   {daysRemaining}
                 </ThemedText>
-                <ThemedText style={[styles.statLabel, { color: theme.textSecondary }]}>
+                <ThemedText
+                  style={[styles.statLabel, { color: theme.textSecondary }]}
+                >
                   Days Left
                 </ThemedText>
               </View>
@@ -141,7 +181,9 @@ export default function CommitmentDetailScreen() {
 
             {photosOnly.length > 0 ? (
               <View style={styles.gallerySection}>
-                <ThemedText style={styles.sectionTitle}>Photo Gallery</ThemedText>
+                <ThemedText style={styles.sectionTitle}>
+                  Photo Gallery
+                </ThemedText>
                 <View style={styles.photoGrid}>
                   {photosOnly.slice(0, 6).map((checkIn) => {
                     const photoUrl = getPhotoUrl(checkIn.mediaUrl);
@@ -149,23 +191,32 @@ export default function CommitmentDetailScreen() {
                       <Image
                         key={checkIn.id}
                         source={{ uri: photoUrl }}
-                        style={[styles.gridPhoto, { width: PHOTO_SIZE, height: PHOTO_SIZE }]}
+                        style={[
+                          styles.gridPhoto,
+                          { width: PHOTO_SIZE, height: PHOTO_SIZE },
+                        ]}
                         contentFit="cover"
                       />
                     ) : null;
                   })}
                 </View>
                 {photosOnly.length > 6 ? (
-                  <ThemedText style={[styles.morePhotos, { color: theme.textSecondary }]}>
+                  <ThemedText
+                    style={[styles.morePhotos, { color: theme.textSecondary }]}
+                  >
                     +{photosOnly.length - 6} more photos
                   </ThemedText>
                 ) : null}
               </View>
             ) : null}
 
-            <ThemedText style={styles.sectionTitle}>Check-in History</ThemedText>
+            <ThemedText style={styles.sectionTitle}>
+              Check-in History
+            </ThemedText>
             {checkIns.length === 0 && !isLoading ? (
-              <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.emptyText, { color: theme.textSecondary }]}
+              >
                 No check-ins yet. Start your streak today!
               </ThemedText>
             ) : null}
@@ -179,7 +230,12 @@ export default function CommitmentDetailScreen() {
           onPress={() => navigation.navigate("CheckIn", { commitment })}
           style={styles.checkInButton}
         >
-          <Feather name="camera" size={20} color="#fff" style={{ marginRight: Spacing.sm }} />
+          <Feather
+            name="camera"
+            size={20}
+            color="#fff"
+            style={{ marginRight: Spacing.sm }}
+          />
           Check In Now
         </Button>
       </View>

@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, ScrollView, Pressable, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  ScrollView,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -65,10 +73,12 @@ export default function CreateCommitmentScreen() {
         startDate: startDate.toISOString().split("T")[0],
         endDate: endDate.toISOString().split("T")[0],
       });
-      Alert.alert("Success", "Your commitment has been created! Start your streak today.", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
-    } catch (error) {
+      Alert.alert(
+        "Success",
+        "Your commitment has been created! Start your streak today.",
+        [{ text: "OK", onPress: () => navigation.goBack() }]
+      );
+    } catch {
       Alert.alert("Error", "Failed to create commitment. Please try again.");
     }
   };
@@ -84,7 +94,9 @@ export default function CreateCommitmentScreen() {
       ]}
     >
       <View style={styles.form}>
-        <ThemedText style={styles.label}>What&apos;s your commitment?</ThemedText>
+        <ThemedText style={styles.label}>
+          What&apos;s your commitment?
+        </ThemedText>
         <TextInput
           style={[
             styles.input,
@@ -101,7 +113,11 @@ export default function CreateCommitmentScreen() {
         />
 
         <ThemedText style={styles.label}>Category</ThemedText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+        >
           {categories.map((cat) => {
             const isActive = category === cat.id;
             return (
@@ -110,7 +126,9 @@ export default function CreateCommitmentScreen() {
                 style={[
                   styles.categoryChip,
                   {
-                    backgroundColor: isActive ? theme.primary : theme.backgroundDefault,
+                    backgroundColor: isActive
+                      ? theme.primary
+                      : theme.backgroundDefault,
                     borderColor: isActive ? theme.primary : theme.border,
                   },
                 ]}
@@ -144,7 +162,9 @@ export default function CreateCommitmentScreen() {
                 style={[
                   styles.cadenceButton,
                   {
-                    backgroundColor: isActive ? theme.primary : theme.backgroundDefault,
+                    backgroundColor: isActive
+                      ? theme.primary
+                      : theme.backgroundDefault,
                     borderColor: isActive ? theme.primary : theme.border,
                   },
                 ]}

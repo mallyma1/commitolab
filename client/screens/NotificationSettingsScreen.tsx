@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Switch, Pressable, Alert, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Switch,
+  Pressable,
+  Alert,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
@@ -33,7 +40,9 @@ export default function NotificationSettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
-  const [settings, setSettings] = useState<NotificationSettings>(defaultNotificationSettings);
+  const [settings, setSettings] = useState<NotificationSettings>(
+    defaultNotificationSettings
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -71,7 +80,10 @@ export default function NotificationSettingsScreen() {
     await saveNotificationSettings(newSettings);
   };
 
-  const handleToggle = async (key: keyof NotificationSettings, value: boolean) => {
+  const handleToggle = async (
+    key: keyof NotificationSettings,
+    value: boolean
+  ) => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     await saveNotificationSettings(newSettings);
@@ -83,15 +95,8 @@ export default function NotificationSettingsScreen() {
     await saveNotificationSettings(newSettings);
   };
 
-  const getTimeLabel = (value: string) => {
-    const option = TIME_OPTIONS.find((t) => t.value === value);
-    return option?.label || value;
-  };
-
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }} />
-    );
+    return <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }} />;
   }
 
   return (
@@ -107,12 +112,21 @@ export default function NotificationSettingsScreen() {
       <Card style={styles.settingCard}>
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
-            <View style={[styles.iconContainer, { backgroundColor: `${EarthyColors.forestGreen}20` }]}>
+            <View
+              style={[
+                styles.iconContainer,
+                { backgroundColor: `${EarthyColors.forestGreen}20` },
+              ]}
+            >
               <Feather name="bell" size={20} color={EarthyColors.forestGreen} />
             </View>
             <View style={styles.settingText}>
-              <ThemedText style={styles.settingTitle}>Enable Notifications</ThemedText>
-              <ThemedText style={[styles.settingDesc, { color: theme.textSecondary }]}>
+              <ThemedText style={styles.settingTitle}>
+                Enable Notifications
+              </ThemedText>
+              <ThemedText
+                style={[styles.settingDesc, { color: theme.textSecondary }]}
+              >
                 Get reminders to check in and stay accountable
               </ThemedText>
             </View>
@@ -135,12 +149,25 @@ export default function NotificationSettingsScreen() {
           <Card style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <View style={[styles.iconContainer, { backgroundColor: `${EarthyColors.terraBrown}20` }]}>
-                  <Feather name="clock" size={20} color={EarthyColors.terraBrown} />
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: `${EarthyColors.terraBrown}20` },
+                  ]}
+                >
+                  <Feather
+                    name="clock"
+                    size={20}
+                    color={EarthyColors.terraBrown}
+                  />
                 </View>
                 <View style={styles.settingText}>
-                  <ThemedText style={styles.settingTitle}>Daily Reminder</ThemedText>
-                  <ThemedText style={[styles.settingDesc, { color: theme.textSecondary }]}>
+                  <ThemedText style={styles.settingTitle}>
+                    Daily Reminder
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.settingDesc, { color: theme.textSecondary }]}
+                  >
                     Get a daily nudge to check in
                   </ThemedText>
                 </View>
@@ -148,14 +175,24 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings.dailyReminder}
                 onValueChange={(value) => handleToggle("dailyReminder", value)}
-                trackColor={{ false: theme.border, true: EarthyColors.terraBrown }}
+                trackColor={{
+                  false: theme.border,
+                  true: EarthyColors.terraBrown,
+                }}
                 thumbColor="#fff"
               />
             </View>
 
             {settings.dailyReminder ? (
-              <View style={[styles.timeSelector, { borderTopColor: theme.border }]}>
-                <ThemedText style={[styles.timeSelectorLabel, { color: theme.textSecondary }]}>
+              <View
+                style={[styles.timeSelector, { borderTopColor: theme.border }]}
+              >
+                <ThemedText
+                  style={[
+                    styles.timeSelectorLabel,
+                    { color: theme.textSecondary },
+                  ]}
+                >
                   Reminder Time
                 </ThemedText>
                 <View style={styles.timeOptions}>
@@ -235,12 +272,25 @@ export default function NotificationSettingsScreen() {
           <Card style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <View style={[styles.iconContainer, { backgroundColor: `${EarthyColors.clayRed}20` }]}>
-                  <Feather name="alert-triangle" size={20} color={EarthyColors.clayRed} />
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: `${EarthyColors.clayRed}20` },
+                  ]}
+                >
+                  <Feather
+                    name="alert-triangle"
+                    size={20}
+                    color={EarthyColors.clayRed}
+                  />
                 </View>
                 <View style={styles.settingText}>
-                  <ThemedText style={styles.settingTitle}>Streak Warnings</ThemedText>
-                  <ThemedText style={[styles.settingDesc, { color: theme.textSecondary }]}>
+                  <ThemedText style={styles.settingTitle}>
+                    Streak Warnings
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.settingDesc, { color: theme.textSecondary }]}
+                  >
                     Alert when your streak is at risk
                   </ThemedText>
                 </View>
@@ -257,19 +307,30 @@ export default function NotificationSettingsScreen() {
           <Card style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <View style={[styles.iconContainer, { backgroundColor: `${EarthyColors.gold}20` }]}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: `${EarthyColors.gold}20` },
+                  ]}
+                >
                   <Feather name="sun" size={20} color={EarthyColors.gold} />
                 </View>
                 <View style={styles.settingText}>
-                  <ThemedText style={styles.settingTitle}>Motivational Messages</ThemedText>
-                  <ThemedText style={[styles.settingDesc, { color: theme.textSecondary }]}>
+                  <ThemedText style={styles.settingTitle}>
+                    Motivational Messages
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.settingDesc, { color: theme.textSecondary }]}
+                  >
                     Receive Stoic wisdom and encouragement
                   </ThemedText>
                 </View>
               </View>
               <Switch
                 value={settings.motivationalMessages}
-                onValueChange={(value) => handleToggle("motivationalMessages", value)}
+                onValueChange={(value) =>
+                  handleToggle("motivationalMessages", value)
+                }
                 trackColor={{ false: theme.border, true: EarthyColors.gold }}
                 thumbColor="#fff"
               />
@@ -281,7 +342,8 @@ export default function NotificationSettingsScreen() {
       <View style={styles.infoCard}>
         <Feather name="info" size={16} color={theme.textSecondary} />
         <ThemedText style={[styles.infoText, { color: theme.textSecondary }]}>
-          Notifications help you stay consistent. We recommend enabling at least the daily reminder for best results.
+          Notifications help you stay consistent. We recommend enabling at least
+          the daily reminder for best results.
         </ThemedText>
       </View>
     </KeyboardAwareScrollViewCompat>

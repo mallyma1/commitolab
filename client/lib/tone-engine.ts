@@ -60,7 +60,9 @@ const ARCHETYPE_TONES: Record<string, ToneType> = {
   better_everyday: "data",
 };
 
-export function getToneFromArchetype(archetype: string | null | undefined): ToneType {
+export function getToneFromArchetype(
+  archetype: string | null | undefined
+): ToneType {
   if (!archetype) return "calm";
   return ARCHETYPE_TONES[archetype] || "calm";
 }
@@ -73,7 +75,7 @@ export function getCopy(archetype: string | null | undefined): ToneCopy {
 export function getGreeting(name: string | null | undefined): string {
   const hour = new Date().getHours();
   const displayName = name || "there";
-  
+
   if (hour < 12) {
     return `Good morning, ${displayName}`;
   } else if (hour < 17) {
@@ -92,7 +94,7 @@ export function formatCategory(category: string): string {
 
 export function getFocusAreaLabel(category: string | null | undefined): string {
   if (!category) return "your goals";
-  
+
   const labels: Record<string, string> = {
     fitness: "your body",
     learning: "your mind",
@@ -103,6 +105,45 @@ export function getFocusAreaLabel(category: string | null | undefined): string {
     personal_improvement: "a better you",
     custom: "your goals",
   };
-  
+
   return labels[category] || "your goals";
+}
+
+export function getCommitmentTip(
+  tone: ToneType,
+  currentStreak: number
+): string {
+  const tips: Record<ToneType, Record<string, string>> = {
+    direct: {
+      early: "You've started. Keep the momentum going.",
+      mid: "You're proving to yourself. Don't stop now.",
+      strong: "This is becoming part of who you are.",
+    },
+    calm: {
+      early: "You're on your way. One day at a time.",
+      mid: "You're building something real and lasting.",
+      strong: "You've found your rhythm. Trust it.",
+    },
+    data: {
+      early: "Streak initialized. Continue logging.",
+      mid: "Consistency metrics looking strong.",
+      strong: "Long-term trend data is positive.",
+    },
+    hype: {
+      early: "You're in motion! Keep it rolling!",
+      mid: "This streak is real! Keep showing up!",
+      strong: "You're unstoppable! This is who you are!",
+    },
+    quiet: {
+      early: "Getting started.",
+      mid: "Building something solid.",
+      strong: "This is working.",
+    },
+  };
+
+  let phase = "early";
+  if (currentStreak >= 30) phase = "strong";
+  else if (currentStreak >= 7) phase = "mid";
+
+  return tips[tone][phase];
 }

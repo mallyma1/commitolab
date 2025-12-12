@@ -19,7 +19,8 @@ const profiles: Record<HabitProfileType, HabitProfile> = {
   structured_rebuilder: {
     type: "structured_rebuilder",
     name: "Structured Rebuilder",
-    description: "You thrive with clear systems and processes. When things fall apart, you methodically rebuild them stronger.",
+    description:
+      "You thrive with clear systems and processes. When things fall apart, you methodically rebuild them stronger.",
     strengths: [
       "Strong planning abilities",
       "Resilient after setbacks",
@@ -40,7 +41,8 @@ const profiles: Record<HabitProfileType, HabitProfile> = {
   high_drive_sprinter: {
     type: "high_drive_sprinter",
     name: "High-Drive Sprinter",
-    description: "You move fast when motivated, but risk burning out when momentum drops. Small, visible wins and consistent cues will be your foundation.",
+    description:
+      "You move fast when motivated, but risk burning out when momentum drops. Small, visible wins and consistent cues will be your foundation.",
     strengths: [
       "High energy when motivated",
       "Quick to take action",
@@ -61,7 +63,8 @@ const profiles: Record<HabitProfileType, HabitProfile> = {
   gentle_sustainer: {
     type: "gentle_sustainer",
     name: "Gentle Sustainer",
-    description: "You prefer gradual, sustainable change over dramatic transformations. Your patience is your superpower.",
+    description:
+      "You prefer gradual, sustainable change over dramatic transformations. Your patience is your superpower.",
     strengths: [
       "Patient with long-term goals",
       "Self-compassionate approach",
@@ -82,7 +85,8 @@ const profiles: Record<HabitProfileType, HabitProfile> = {
   quiet_strategist: {
     type: "quiet_strategist",
     name: "Quiet Strategist",
-    description: "You think deeply before acting and prefer working alone. Your habits are most effective when they align with your inner values.",
+    description:
+      "You think deeply before acting and prefer working alone. Your habits are most effective when they align with your inner values.",
     strengths: [
       "Deep reflection before action",
       "Independent and self-directed",
@@ -103,7 +107,8 @@ const profiles: Record<HabitProfileType, HabitProfile> = {
   identity_builder: {
     type: "identity_builder",
     name: "Identity Builder",
-    description: "You focus on becoming a certain type of person, not just achieving goals. Your habits are expressions of who you want to be.",
+    description:
+      "You focus on becoming a certain type of person, not just achieving goals. Your habits are expressions of who you want to be.",
     strengths: [
       "Strong sense of purpose",
       "Habits tied to identity last longer",
@@ -125,12 +130,12 @@ const profiles: Record<HabitProfileType, HabitProfile> = {
 
 export function generateHabitProfile(onboardingData: {
   motivations: string[];
-  focusArea: string;
   rewardStyle: string[];
   changeStyle: string;
   relapseTriggers: string[];
 }): HabitProfile {
-  const { motivations, focusArea, rewardStyle, changeStyle, relapseTriggers } = onboardingData;
+  const { motivations, rewardStyle, changeStyle, relapseTriggers } =
+    onboardingData;
 
   if (changeStyle === "all_in_fast") {
     return profiles.high_drive_sprinter;
@@ -140,15 +145,24 @@ export function generateHabitProfile(onboardingData: {
     return profiles.gentle_sustainer;
   }
 
-  if (rewardStyle.includes("building_identity") || motivations.includes("becoming_my_best_self")) {
+  if (
+    rewardStyle.includes("building_identity") ||
+    motivations.includes("becoming_my_best_self")
+  ) {
     return profiles.identity_builder;
   }
 
-  if (changeStyle === "wait_until_ready" || relapseTriggers.includes("lack_of_structure")) {
+  if (
+    changeStyle === "wait_until_ready" ||
+    relapseTriggers.includes("lack_of_structure")
+  ) {
     return profiles.quiet_strategist;
   }
 
-  if (motivations.includes("more_discipline") || motivations.includes("better_routine")) {
+  if (
+    motivations.includes("more_discipline") ||
+    motivations.includes("better_routine")
+  ) {
     return profiles.structured_rebuilder;
   }
 

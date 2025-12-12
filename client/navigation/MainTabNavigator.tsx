@@ -7,12 +7,10 @@ import HomeStackNavigator from "@/navigation/HomeStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import DopamineLabScreen from "@/screens/DopamineLabScreen";
 import { useTheme } from "@/hooks/useTheme";
-import { useScreenOptions } from "@/hooks/useScreenOptions";
-import { EarthyColors } from "@/constants/theme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  DopamineLab: undefined;
+  Tools: undefined;
   ProfileTab: undefined;
 };
 
@@ -20,7 +18,6 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
-  const screenOptions = useScreenOptions();
 
   return (
     <Tab.Navigator
@@ -48,6 +45,8 @@ export default function MainTabNavigator() {
             />
           ) : null,
         headerShown: false,
+        // Lazy-load secondary tabs to reduce initial navigation work
+        lazy: true,
       }}
     >
       <Tab.Screen
@@ -61,14 +60,14 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="DopamineLab"
+        name="Tools"
         component={DopamineLabScreen}
         options={{
-          headerTitle: "Dopamine Lab",
+          headerTitle: "Tools",
           headerShown: true,
-          title: "Lab",
+          title: "Tools",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="zap" size={size} color={color} />
+            <Feather name="tool" size={size} color={color} />
           ),
         }}
       />

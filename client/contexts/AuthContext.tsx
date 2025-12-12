@@ -1,7 +1,17 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { ONBOARDING_DATA_KEY, HAS_EVER_LOGGED_IN_KEY, type OnboardingData } from "@/types/onboarding";
+import { apiRequest } from "@/lib/query-client";
+import {
+  ONBOARDING_DATA_KEY,
+  HAS_EVER_LOGGED_IN_KEY,
+  type OnboardingData,
+} from "@/types/onboarding";
 
 export type { OnboardingData };
 
@@ -41,10 +51,22 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, onboardingData?: OnboardingData) => Promise<void>;
-  loginWithPhone: (phone: string, code: string, onboardingData?: OnboardingData) => Promise<void>;
-  sendPhoneCode: (phone: string) => Promise<{ success: boolean; message?: string }>;
-  loginWithGoogle: (accessToken: string, onboardingData?: OnboardingData) => Promise<void>;
-  loginWithApple: (credential: AppleCredential, onboardingData?: OnboardingData) => Promise<void>;
+  loginWithPhone: (
+    phone: string,
+    code: string,
+    onboardingData?: OnboardingData
+  ) => Promise<void>;
+  sendPhoneCode: (
+    phone: string
+  ) => Promise<{ success: boolean; message?: string }>;
+  loginWithGoogle: (
+    accessToken: string,
+    onboardingData?: OnboardingData
+  ) => Promise<void>;
+  loginWithApple: (
+    credential: AppleCredential,
+    onboardingData?: OnboardingData
+  ) => Promise<void>;
   logout: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
@@ -78,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, onboardingData?: OnboardingData) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/login", { 
+      const response = await apiRequest("POST", "/api/auth/login", {
         email,
         onboarding: onboardingData,
       });
@@ -96,9 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const sendPhoneCode = async (phone: string): Promise<{ success: boolean; message?: string }> => {
+  const sendPhoneCode = async (
+    phone: string
+  ): Promise<{ success: boolean; message?: string }> => {
     try {
-      const response = await apiRequest("POST", "/api/auth/phone/send-code", { phoneNumber: phone });
+      const response = await apiRequest("POST", "/api/auth/phone/send-code", {
+        phoneNumber: phone,
+      });
       const data = await response.json();
       return { success: true, message: data.message };
     } catch (error) {
@@ -107,9 +133,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithPhone = async (phone: string, code: string, onboardingData?: OnboardingData) => {
+  const loginWithPhone = async (
+    phone: string,
+    code: string,
+    onboardingData?: OnboardingData
+  ) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/phone/verify", { 
+      const response = await apiRequest("POST", "/api/auth/phone/verify", {
         phoneNumber: phone,
         code,
         onboarding: onboardingData,
@@ -128,9 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async (accessToken: string, onboardingData?: OnboardingData) => {
+  const loginWithGoogle = async (
+    accessToken: string,
+    onboardingData?: OnboardingData
+  ) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/google", { 
+      const response = await apiRequest("POST", "/api/auth/google", {
         accessToken,
         onboarding: onboardingData,
       });
@@ -148,9 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithApple = async (credential: AppleCredential, onboardingData?: OnboardingData) => {
+  const loginWithApple = async (
+    credential: AppleCredential,
+    onboardingData?: OnboardingData
+  ) => {
     try {
-      const response = await apiRequest("POST", "/api/auth/apple", { 
+      const response = await apiRequest("POST", "/api/auth/apple", {
         identityToken: credential.identityToken,
         email: credential.email,
         fullName: credential.fullName,

@@ -9,7 +9,8 @@ export const OnboardingContext = createContext<OnboardingContextValue | null>(
 
 export function useOnboardingContext() {
   const ctx = useContext(OnboardingContext);
-  if (!ctx) throw new Error("useOnboardingContext must be used inside provider");
+  if (!ctx)
+    throw new Error("useOnboardingContext must be used inside provider");
   return ctx;
 }
 

@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { View, StyleSheet, TextInput, Image, Pressable, Alert, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Image,
+  Pressable,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -34,13 +43,19 @@ export default function CheckInScreen() {
 
   const takePhoto = async () => {
     if (Platform.OS === "web") {
-      Alert.alert("Camera Not Available", "Run in Expo Go to use the camera feature.");
+      Alert.alert(
+        "Camera Not Available",
+        "Run in Expo Go to use the camera feature."
+      );
       return;
     }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission Needed", "Camera access is required to take check-in photos.");
+      Alert.alert(
+        "Permission Needed",
+        "Camera access is required to take check-in photos."
+      );
       return;
     }
 
@@ -76,8 +91,11 @@ export default function CheckInScreen() {
   const uploadPhoto = async (uri: string): Promise<string | null> => {
     try {
       const apiUrl = getApiUrl();
-      const uploadUrlEndpoint = new URL("/api/objects/upload", apiUrl).toString();
-      
+      const uploadUrlEndpoint = new URL(
+        "/api/objects/upload",
+        apiUrl
+      ).toString();
+
       const presignedUrlResponse = await fetch(uploadUrlEndpoint, {
         method: "POST",
         credentials: "include",
@@ -105,12 +123,15 @@ export default function CheckInScreen() {
         throw new Error("Upload failed");
       }
 
-      const setAclResponse = await fetch(new URL("/api/objects/set-acl", apiUrl).toString(), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uploadURL }),
-        credentials: "include",
-      });
+      const setAclResponse = await fetch(
+        new URL("/api/objects/set-acl", apiUrl).toString(),
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uploadURL }),
+          credentials: "include",
+        }
+      );
 
       if (!setAclResponse.ok) {
         console.warn("Failed to set ACL, but upload succeeded");
@@ -129,7 +150,7 @@ export default function CheckInScreen() {
 
     try {
       let mediaUrl: string | null = null;
-      
+
       if (photo) {
         mediaUrl = await uploadPhoto(photo);
       }
@@ -140,12 +161,10 @@ export default function CheckInScreen() {
         mediaUrl: mediaUrl || undefined,
       });
 
-      Alert.alert(
-        "Check-in Complete!",
-        "Great job! Keep up your streak!",
-        [{ text: "OK", onPress: () => navigation.goBack() }]
-      );
-    } catch (error) {
+      Alert.alert("Check-in Complete!", "Great job! Keep up your streak!", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
+    } catch {
       Alert.alert("Error", "Failed to complete check-in. Please try again.");
     } finally {
       setIsUploading(false);
@@ -175,7 +194,10 @@ export default function CheckInScreen() {
           <View style={styles.photoPreviewContainer}>
             <Image source={{ uri: photo }} style={styles.photoPreview} />
             <Pressable
-              style={[styles.retakeButton, { backgroundColor: theme.backgroundSecondary }]}
+              style={[
+                styles.retakeButton,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
               onPress={() => setPhoto(null)}
             >
               <Feather name="x" size={20} color={theme.text} />
@@ -185,11 +207,19 @@ export default function CheckInScreen() {
           <View
             style={[
               styles.photoPlaceholder,
-              { backgroundColor: theme.backgroundDefault, borderColor: theme.border },
+              {
+                backgroundColor: theme.backgroundDefault,
+                borderColor: theme.border,
+              },
             ]}
           >
             <Feather name="camera" size={48} color={theme.textSecondary} />
-            <ThemedText style={[styles.photoPlaceholderText, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[
+                styles.photoPlaceholderText,
+                { color: theme.textSecondary },
+              ]}
+            >
               Add a photo as proof (optional)
             </ThemedText>
             <View style={styles.photoButtons}>
@@ -198,10 +228,15 @@ export default function CheckInScreen() {
                 onPress={takePhoto}
               >
                 <Feather name="camera" size={20} color="#fff" />
-                <ThemedText style={styles.photoButtonText}>Take Photo</ThemedText>
+                <ThemedText style={styles.photoButtonText}>
+                  Take Photo
+                </ThemedText>
               </Pressable>
               <Pressable
-                style={[styles.photoButton, { backgroundColor: theme.secondary }]}
+                style={[
+                  styles.photoButton,
+                  { backgroundColor: theme.secondary },
+                ]}
                 onPress={pickPhoto}
               >
                 <Feather name="image" size={20} color="#fff" />
@@ -231,7 +266,11 @@ export default function CheckInScreen() {
         textAlignVertical="top"
       />
 
-      <Button onPress={handleCheckIn} disabled={isLoading} style={styles.submitButton}>
+      <Button
+        onPress={handleCheckIn}
+        disabled={isLoading}
+        style={styles.submitButton}
+      >
         {isLoading ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (

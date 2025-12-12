@@ -29,15 +29,18 @@ export function StrugglePatternsScreen({ navigation }: Props) {
   const { payload, update } = useOnboardingContext();
 
   const togglePattern = (pattern: string) => {
-    const current = payload.strugglePatterns;
+    const current = payload.strugglePatterns ?? [];
     if (current.includes(pattern)) {
-      update("strugglePatterns", current.filter((p) => p !== pattern));
+      update(
+        "strugglePatterns",
+        current.filter((p: string) => p !== pattern)
+      );
     } else {
       update("strugglePatterns", [...current, pattern]);
     }
   };
 
-  const canContinue = payload.strugglePatterns.length >= 1;
+  const canContinue = (payload.strugglePatterns?.length ?? 0) >= 1;
 
   return (
     <View
@@ -50,19 +53,23 @@ export function StrugglePatternsScreen({ navigation }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
           What trips you up the most?
         </ThemedText>
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-          Be honest. This helps us anticipate where you might slip and design around it.
+          Be honest. This helps us anticipate where you might slip and design
+          around it.
         </ThemedText>
 
         <View style={styles.optionList}>
           {struggleOptions.map((pattern) => {
-            const selected = payload.strugglePatterns.includes(pattern);
+            const selected = (payload.strugglePatterns ?? []).includes(pattern);
             return (
               <Pressable
                 key={pattern}
@@ -70,7 +77,9 @@ export function StrugglePatternsScreen({ navigation }: Props) {
                 style={[
                   styles.optionCard,
                   {
-                    backgroundColor: selected ? theme.primary + "15" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "15"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
@@ -84,7 +93,9 @@ export function StrugglePatternsScreen({ navigation }: Props) {
                     },
                   ]}
                 >
-                  {selected ? <Feather name="check" size={14} color="#fff" /> : null}
+                  {selected ? (
+                    <Feather name="check" size={14} color="#fff" />
+                  ) : null}
                 </View>
                 <ThemedText style={styles.optionText}>{pattern}</ThemedText>
               </Pressable>

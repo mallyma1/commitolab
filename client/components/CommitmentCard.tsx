@@ -1,5 +1,11 @@
 import React from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,7 +15,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -103,12 +108,12 @@ export default function CommitmentCard({
 
   const handleCheckIn = () => {
     if (isCheckedInToday || isCheckingIn || !onQuickCheckIn) return;
-    
+
     checkButtonScale.value = withSequence(
       withSpring(1.2, bounceConfig),
       withSpring(1, bounceConfig)
     );
-    
+
     triggerHaptic();
     onQuickCheckIn();
   };
@@ -133,32 +138,34 @@ export default function CommitmentCard({
       ]}
     >
       <View style={styles.topRow}>
-        <Pressable 
+        <Pressable
           style={styles.titleSection}
           onPress={onPress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
         >
-          <View style={[styles.categoryDot, { backgroundColor: categoryColor }]} />
+          <View
+            style={[styles.categoryDot, { backgroundColor: categoryColor }]}
+          />
           <ThemedText type="h4" numberOfLines={1} style={styles.title}>
             {commitment.title}
           </ThemedText>
         </Pressable>
-        
+
         <Pressable
           onPress={handleCheckIn}
           disabled={isCheckedInToday || isCheckingIn}
-          style={({ pressed }) => [
-            { opacity: pressed ? 0.7 : 1 }
-          ]}
+          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
         >
-          <Animated.View 
+          <Animated.View
             style={[
               styles.checkButton,
               {
-                backgroundColor: isCheckedInToday ? theme.success : `${theme.primary}15`,
+                backgroundColor: isCheckedInToday
+                  ? theme.success
+                  : `${theme.primary}15`,
                 borderColor: isCheckedInToday ? theme.success : theme.primary,
-                opacity: (isCheckedInToday || isCheckingIn) ? 0.7 : 1,
+                opacity: isCheckedInToday || isCheckingIn ? 0.7 : 1,
               },
               checkButtonAnimatedStyle,
             ]}
@@ -181,15 +188,45 @@ export default function CommitmentCard({
       >
         <View style={styles.content}>
           <View style={styles.streakContainer}>
-            <View style={[styles.streakBadge, { backgroundColor: commitment.currentStreak > 0 ? theme.primary : theme.backgroundSecondary }]}>
-              <ThemedText style={[styles.streakNumber, { color: commitment.currentStreak > 0 ? "#fff" : theme.textSecondary }]}>
+            <View
+              style={[
+                styles.streakBadge,
+                {
+                  backgroundColor:
+                    commitment.currentStreak > 0
+                      ? theme.primary
+                      : theme.backgroundSecondary,
+                },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.streakNumber,
+                  {
+                    color:
+                      commitment.currentStreak > 0
+                        ? "#fff"
+                        : theme.textSecondary,
+                  },
+                ]}
+              >
                 {commitment.currentStreak}
               </ThemedText>
-              <ThemedText style={[styles.streakLabel, { color: commitment.currentStreak > 0 ? "rgba(255,255,255,0.9)" : theme.textSecondary }]}>
+              <ThemedText
+                style={[
+                  styles.streakLabel,
+                  {
+                    color:
+                      commitment.currentStreak > 0
+                        ? "rgba(255,255,255,0.9)"
+                        : theme.textSecondary,
+                  },
+                ]}
+              >
                 day streak
               </ThemedText>
             </View>
-            
+
             {commitment.currentStreak > 0 && commitment.currentStreak >= 3 ? (
               <View style={styles.fireContainer}>
                 <Feather name="zap" size={16} color={theme.accent} />
@@ -200,19 +237,25 @@ export default function CommitmentCard({
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Feather name={categoryIcon} size={14} color={categoryColor} />
-              <ThemedText style={[styles.metaText, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.metaText, { color: theme.textSecondary }]}
+              >
                 {commitment.category.replace("_", " ")}
               </ThemedText>
             </View>
             <View style={styles.metaItem}>
               <Feather name="repeat" size={14} color={theme.textSecondary} />
-              <ThemedText style={[styles.metaText, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.metaText, { color: theme.textSecondary }]}
+              >
                 {formatCadence(commitment.cadence)}
               </ThemedText>
             </View>
             <View style={styles.metaItem}>
               <Feather name="award" size={14} color={theme.accent} />
-              <ThemedText style={[styles.metaText, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.metaText, { color: theme.textSecondary }]}
+              >
                 Best: {commitment.longestStreak}
               </ThemedText>
             </View>
@@ -220,14 +263,24 @@ export default function CommitmentCard({
         </View>
 
         {isCheckedInToday ? (
-          <View style={[styles.statusBar, { backgroundColor: `${theme.success}15` }]}>
+          <View
+            style={[
+              styles.statusBar,
+              { backgroundColor: `${theme.success}15` },
+            ]}
+          >
             <Feather name="check-circle" size={14} color={theme.success} />
             <ThemedText style={[styles.statusText, { color: theme.success }]}>
               Checked in today
             </ThemedText>
           </View>
         ) : (
-          <View style={[styles.statusBar, { backgroundColor: `${theme.primary}08` }]}>
+          <View
+            style={[
+              styles.statusBar,
+              { backgroundColor: `${theme.primary}08` },
+            ]}
+          >
             <Feather name="clock" size={14} color={theme.primary} />
             <ThemedText style={[styles.statusText, { color: theme.primary }]}>
               Tap + to check in

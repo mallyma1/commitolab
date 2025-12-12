@@ -13,7 +13,10 @@ interface HabitProfileCardProps {
   onLearnMore?: () => void;
 }
 
-export function HabitProfileCard({ profileType, onLearnMore }: HabitProfileCardProps) {
+export function HabitProfileCard({
+  profileType,
+  onLearnMore,
+}: HabitProfileCardProps) {
   const { theme } = useTheme();
 
   if (!profileType) {
@@ -21,7 +24,9 @@ export function HabitProfileCard({ profileType, onLearnMore }: HabitProfileCardP
       <Card style={styles.card}>
         <View style={styles.emptyState}>
           <Feather name="user" size={32} color={theme.textSecondary} />
-          <ThemedText style={[styles.emptyText, { color: theme.textSecondary }]}>
+          <ThemedText
+            style={[styles.emptyText, { color: theme.textSecondary }]}
+          >
             Complete behavioral onboarding to discover your habit profile
           </ThemedText>
         </View>
@@ -50,28 +55,43 @@ export function HabitProfileCard({ profileType, onLearnMore }: HabitProfileCardP
       </ThemedText>
 
       <View style={styles.section}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+        <ThemedText
+          style={[styles.sectionLabel, { color: theme.textSecondary }]}
+        >
           Key strength
         </ThemedText>
         <View style={styles.bulletItem}>
-          <Feather name="check-circle" size={14} color={EarthyColors.forestGreen} />
-          <ThemedText style={styles.bulletText}>{profile.strengths[0]}</ThemedText>
+          <Feather
+            name="check-circle"
+            size={14}
+            color={EarthyColors.forestGreen}
+          />
+          <ThemedText style={styles.bulletText}>
+            {profile.strengths[0]}
+          </ThemedText>
         </View>
       </View>
 
       <View style={styles.section}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.textSecondary }]}>
+        <ThemedText
+          style={[styles.sectionLabel, { color: theme.textSecondary }]}
+        >
           Watch out for
         </ThemedText>
         <View style={styles.bulletItem}>
           <Feather name="alert-circle" size={14} color={EarthyColors.clayRed} />
-          <ThemedText style={styles.bulletText}>{profile.riskZones[0]}</ThemedText>
+          <ThemedText style={styles.bulletText}>
+            {profile.riskZones[0]}
+          </ThemedText>
         </View>
       </View>
 
       {onLearnMore ? (
         <Pressable
-          style={[styles.learnMoreButton, { backgroundColor: `${profile.color}15` }]}
+          style={[
+            styles.learnMoreButton,
+            { backgroundColor: `${profile.color}15` },
+          ]}
           onPress={onLearnMore}
         >
           <ThemedText style={[styles.learnMoreText, { color: profile.color }]}>

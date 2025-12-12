@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Image, TextInput, ActivityIndicator, Alert, Pressable } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Image,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -12,7 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 import { ONBOARDING_DATA_KEY, type OnboardingData } from "@/types/onboarding";
 
-type AuthMode = "select" | "email";
+type AuthMode = "select" | "email" | "phone";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -24,7 +32,9 @@ export default function AuthScreen() {
   const [verificationCode, setVerificationCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showVerification, setShowVerification] = useState(false);
-  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(
+    null
+  );
 
   useEffect(() => {
     loadOnboardingData();
@@ -56,7 +66,7 @@ export default function AuthScreen() {
     setIsLoading(true);
     try {
       await login(email.trim().toLowerCase(), onboardingData || undefined);
-    } catch (error) {
+    } catch {
       Alert.alert("Login Failed", "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
@@ -72,7 +82,10 @@ export default function AuthScreen() {
     const phoneRegex = /^\+?[1-9]\d{6,14}$/;
     const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
     if (!phoneRegex.test(cleanPhone)) {
-      Alert.alert("Invalid Phone", "Please enter a valid phone number with country code (e.g. +1 for US)");
+      Alert.alert(
+        "Invalid Phone",
+        "Please enter a valid phone number with country code (e.g. +1 for US)"
+      );
       return;
     }
 
@@ -87,10 +100,17 @@ export default function AuthScreen() {
           [{ text: "OK" }]
         );
       } else {
-        Alert.alert("Error", result.message || "Failed to send verification code. Please try again.");
+        Alert.alert(
+          "Error",
+          result.message ||
+            "Failed to send verification code. Please try again."
+        );
       }
-    } catch (error) {
-      Alert.alert("Error", "Failed to send verification code. Please try again.");
+    } catch {
+      Alert.alert(
+        "Error",
+        "Failed to send verification code. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -105,9 +125,16 @@ export default function AuthScreen() {
     setIsLoading(true);
     try {
       const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
-      await loginWithPhone(cleanPhone, verificationCode, onboardingData || undefined);
-    } catch (error) {
-      Alert.alert("Verification Failed", "Invalid or expired code. Please try again.");
+      await loginWithPhone(
+        cleanPhone,
+        verificationCode,
+        onboardingData || undefined
+      );
+    } catch {
+      Alert.alert(
+        "Verification Failed",
+        "Invalid or expired code. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -132,7 +159,9 @@ export default function AuthScreen() {
       disabled={isLoading}
     >
       <Feather name={icon} size={20} color={color} />
-      <ThemedText style={[styles.ssoButtonText, bgColor ? { color: "#fff" } : {}]}>
+      <ThemedText
+        style={[styles.ssoButtonText, bgColor ? { color: "#fff" } : {}]}
+      >
         {label}
       </ThemedText>
     </Pressable>
@@ -146,14 +175,25 @@ export default function AuthScreen() {
         EarthyColors.terraBrown,
         () => setAuthMode("email")
       )}
+      {renderSSOButton(
+        "Continue with Phone",
+        "phone",
+        EarthyColors.clayRed,
+        () => setAuthMode("phone")
+      )}
     </View>
   );
 
   const renderEmailMode = () => (
     <View style={styles.form}>
-      <Pressable style={styles.backButton} onPress={() => setAuthMode("select")}>
+      <Pressable
+        style={styles.backButton}
+        onPress={() => setAuthMode("select")}
+      >
         <Feather name="arrow-left" size={20} color={theme.text} />
-        <ThemedText style={styles.backButtonText}>Back to sign in options</ThemedText>
+        <ThemedText style={styles.backButtonText}>
+          Back to sign in options
+        </ThemedText>
       </Pressable>
 
       <ThemedText style={[styles.label, { color: theme.textSecondary }]}>
@@ -178,7 +218,11 @@ export default function AuthScreen() {
         editable={!isLoading}
       />
 
-      <Button onPress={handleEmailLogin} disabled={isLoading} style={styles.button}>
+      <Button
+        onPress={handleEmailLogin}
+        disabled={isLoading}
+        style={styles.button}
+      >
         {isLoading ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
@@ -203,7 +247,9 @@ export default function AuthScreen() {
         }}
       >
         <Feather name="arrow-left" size={20} color={theme.text} />
-        <ThemedText style={styles.backButtonText}>Back to sign in options</ThemedText>
+        <ThemedText style={styles.backButtonText}>
+          Back to sign in options
+        </ThemedText>
       </Pressable>
 
       {!showVerification ? (
@@ -230,7 +276,11 @@ export default function AuthScreen() {
             editable={!isLoading}
           />
 
-          <Button onPress={handlePhoneLogin} disabled={isLoading} style={styles.button}>
+          <Button
+            onPress={handlePhoneLogin}
+            disabled={isLoading}
+            style={styles.button}
+          >
             {isLoading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
@@ -238,7 +288,9 @@ export default function AuthScreen() {
             )}
           </Button>
 
-          <ThemedText style={[styles.helperText, { color: theme.textSecondary }]}>
+          <ThemedText
+            style={[styles.helperText, { color: theme.textSecondary }]}
+          >
             We&apos;ll send a verification code to your phone.
           </ThemedText>
         </>
@@ -268,7 +320,11 @@ export default function AuthScreen() {
             editable={!isLoading}
           />
 
-          <Button onPress={handleVerifyCode} disabled={isLoading} style={styles.button}>
+          <Button
+            onPress={handleVerifyCode}
+            disabled={isLoading}
+            style={styles.button}
+          >
             {isLoading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
@@ -284,12 +340,21 @@ export default function AuthScreen() {
                 const cleanPhone = phoneNumber.replace(/[\s\-\(\)]/g, "");
                 const result = await sendPhoneCode(cleanPhone);
                 if (result.success) {
-                  Alert.alert("Code Sent", "A new verification code has been sent to your phone.");
+                  Alert.alert(
+                    "Code Sent",
+                    "A new verification code has been sent to your phone."
+                  );
                 } else {
-                  Alert.alert("Error", result.message || "Failed to resend code. Please try again.");
+                  Alert.alert(
+                    "Error",
+                    result.message || "Failed to resend code. Please try again."
+                  );
                 }
-              } catch (error) {
-                Alert.alert("Error", "Failed to resend code. Please try again.");
+              } catch {
+                Alert.alert(
+                  "Error",
+                  "Failed to resend code. Please try again."
+                );
               } finally {
                 setIsLoading(false);
               }
@@ -330,35 +395,66 @@ export default function AuthScreen() {
           StreakProof
         </ThemedText>
         <ThemedText style={[styles.subtitle, { color: theme.textSecondary }]}>
-          Build unbreakable habits with behavioral science and daily accountability.
+          Build unbreakable habits with behavioral science and daily
+          accountability.
         </ThemedText>
 
         {authMode === "select" && renderSelectMode()}
         {authMode === "email" && renderEmailMode()}
+        {authMode === "phone" && renderPhoneMode()}
 
         {authMode === "select" ? (
           <View style={styles.features}>
             <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.forestGreen}20` }]}>
-                <Feather name="target" size={16} color={EarthyColors.forestGreen} />
+              <View
+                style={[
+                  styles.featureIcon,
+                  { backgroundColor: `${EarthyColors.forestGreen}20` },
+                ]}
+              >
+                <Feather
+                  name="target"
+                  size={16}
+                  color={EarthyColors.forestGreen}
+                />
               </View>
-              <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.featureText, { color: theme.textSecondary }]}
+              >
                 Behavioral science-based habit building
               </ThemedText>
             </View>
             <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.terraBrown}20` }]}>
-                <Feather name="trending-up" size={16} color={EarthyColors.terraBrown} />
+              <View
+                style={[
+                  styles.featureIcon,
+                  { backgroundColor: `${EarthyColors.terraBrown}20` },
+                ]}
+              >
+                <Feather
+                  name="trending-up"
+                  size={16}
+                  color={EarthyColors.terraBrown}
+                />
               </View>
-              <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.featureText, { color: theme.textSecondary }]}
+              >
                 Personalized habit profile and coaching
               </ThemedText>
             </View>
             <View style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: `${EarthyColors.clayRed}20` }]}>
+              <View
+                style={[
+                  styles.featureIcon,
+                  { backgroundColor: `${EarthyColors.clayRed}20` },
+                ]}
+              >
                 <Feather name="award" size={16} color={EarthyColors.clayRed} />
               </View>
-              <ThemedText style={[styles.featureText, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.featureText, { color: theme.textSecondary }]}
+              >
                 Streak tracking with dopamine rewards
               </ThemedText>
             </View>

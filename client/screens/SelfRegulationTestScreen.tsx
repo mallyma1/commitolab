@@ -4,7 +4,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
+  Platform,
 } from "react-native";
 import Animated, { FadeIn, SlideInRight } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,16 +12,12 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { ProGate } from "@/components/ProGate";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 
 const QUESTIONS = [
@@ -138,8 +134,9 @@ function getProfileType(scores: DimensionScores): {
   const totalScore = Object.values(scores).reduce((a, b) => a + b, 0);
   const avgScore = totalScore / Object.keys(scores).length;
 
-  const sortedDimensions = Object.entries(scores)
-    .sort(([, a], [, b]) => b - a) as [keyof DimensionScores, number][];
+  const sortedDimensions = Object.entries(scores).sort(
+    ([, a], [, b]) => b - a
+  ) as [keyof DimensionScores, number][];
 
   const topStrengths = sortedDimensions.slice(0, 2).map(([key]) => key);
   const growthAreas = sortedDimensions.slice(-2).map(([key]) => key);
@@ -181,15 +178,16 @@ function getProfileType(scores: DimensionScores): {
 
 export default function SelfRegulationTestScreen() {
   const { theme } = useTheme();
-  const { user } = useAuth();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const queryClient = useQueryClient();
 
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [showResults, setShowResults] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [expandedDimension, setExpandedDimension] = useState<string | null>(
+    null
+  );
 
   const progress = Object.keys(answers).length / QUESTIONS.length;
 
@@ -243,116 +241,198 @@ export default function SelfRegulationTestScreen() {
   if (showResults && dimensionScores && profile) {
     return (
       <ProGate feature="selfRegulationTest" featureName="Self-Regulation Test">
-      <ThemedView style={styles.container}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { paddingTop: headerHeight + Spacing.lg, paddingBottom: insets.bottom + Spacing.xl },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View entering={FadeIn.duration(400)}>
-            <Card style={styles.resultCard}>
-              <View style={[styles.profileBadge, { backgroundColor: `${EarthyColors.forestGreen}20` }]}>
-                <Feather name="award" size={32} color={EarthyColors.forestGreen} />
-              </View>
-              <ThemedText type="h2" style={styles.profileTitle}>
-                {profile.title}
-              </ThemedText>
-              <ThemedText style={[styles.profileDescription, { color: theme.textSecondary }]}>
-                {profile.description}
-              </ThemedText>
-            </Card>
-
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              Your Strengths
-            </ThemedText>
-            <View style={styles.tagContainer}>
-              {profile.strengths.map((s) => (
+        <ThemedView style={styles.container}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              {
+                paddingTop: headerHeight + Spacing.lg,
+                paddingBottom: insets.bottom + Spacing.xl,
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View entering={FadeIn.duration(400)}>
+              <Card style={styles.resultCard}>
                 <View
-                  key={s}
-                  style={[styles.tag, { backgroundColor: `${EarthyColors.forestGreen}20` }]}
+                  style={[
+                    styles.profileBadge,
+                    { backgroundColor: `${EarthyColors.forestGreen}20` },
+                  ]}
                 >
-                  <ThemedText style={[styles.tagText, { color: EarthyColors.forestGreen }]}>
-                    {s}
-                  </ThemedText>
+                  <Feather
+                    name="target"
+                    size={32}
+                    color={EarthyColors.forestGreen}
+                  />
                 </View>
-              ))}
-            </View>
-
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              Growth Opportunities
-            </ThemedText>
-            <View style={styles.tagContainer}>
-              {profile.growthAreas.map((g) => (
-                <View
-                  key={g}
-                  style={[styles.tag, { backgroundColor: `${EarthyColors.copper}15` }]}
+                <ThemedText type="h2" style={styles.profileTitle}>
+                  {profile.title}
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.profileDescription,
+                    { color: theme.textSecondary },
+                  ]}
                 >
-                  <ThemedText style={[styles.tagText, { color: EarthyColors.copper }]}>
-                    {g}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
+                  {profile.description}
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.testNote,
+                    { color: theme.textSecondary, marginTop: Spacing.lg },
+                  ]}
+                >
+                  You can retake this anytime to track your progress.
+                </ThemedText>
+              </Card>
 
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              Dimension Breakdown
-            </ThemedText>
-            <Card style={styles.dimensionsCard}>
-              {Object.entries(dimensionScores).map(([key, score]) => (
-                <View key={key} style={styles.dimensionRow}>
-                  <View style={styles.dimensionInfo}>
-                    <Feather
-                      name={DIMENSION_ICONS[key as keyof DimensionScores] as any}
-                      size={16}
-                      color={theme.textSecondary}
-                    />
-                    <ThemedText style={styles.dimensionLabel}>
-                      {DIMENSION_LABELS[key as keyof DimensionScores]}
+              <ThemedText type="h4" style={styles.sectionTitle}>
+                Your Strengths
+              </ThemedText>
+              <View style={styles.tagContainer}>
+                {profile.strengths.map((s) => (
+                  <View
+                    key={s}
+                    style={[
+                      styles.tag,
+                      { backgroundColor: `${EarthyColors.forestGreen}20` },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.tagText,
+                        { color: EarthyColors.forestGreen },
+                      ]}
+                    >
+                      {s}
                     </ThemedText>
                   </View>
-                  <View style={styles.dimensionBar}>
-                    <View
-                      style={[
-                        styles.dimensionFill,
-                        {
-                          width: `${(score / 5) * 100}%`,
-                          backgroundColor:
-                            score >= 4
-                              ? EarthyColors.forestGreen
-                              : score >= 3
-                              ? EarthyColors.copper
-                              : EarthyColors.rust,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <ThemedText style={[styles.dimensionScore, { color: theme.textSecondary }]}>
-                    {score.toFixed(1)}
-                  </ThemedText>
-                </View>
-              ))}
-            </Card>
+                ))}
+              </View>
 
-            <View style={styles.buttonRow}>
-              <Pressable
-                style={[styles.retakeButton, { borderColor: theme.border }]}
-                onPress={handleRetake}
-              >
-                <Feather name="refresh-cw" size={18} color={theme.text} />
-                <ThemedText>Retake Test</ThemedText>
-              </Pressable>
-              <Pressable
-                style={[styles.doneButton, { backgroundColor: EarthyColors.forestGreen }]}
-                onPress={() => navigation.goBack()}
-              >
-                <ThemedText style={{ color: "#fff", fontWeight: "600" }}>Done</ThemedText>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </ScrollView>
-      </ThemedView>
+              <ThemedText type="h4" style={styles.sectionTitle}>
+                Areas to Develop
+              </ThemedText>
+              <View style={styles.tagContainer}>
+                {profile.growthAreas.map((g) => (
+                  <Pressable
+                    key={g}
+                    onPress={() =>
+                      setExpandedDimension(expandedDimension === g ? null : g)
+                    }
+                    style={[
+                      styles.tag,
+                      { backgroundColor: `${EarthyColors.copper}15` },
+                    ]}
+                  >
+                    <View
+                      style={{
+                        flex: 1,
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <ThemedText
+                        style={[styles.tagText, { color: EarthyColors.copper }]}
+                      >
+                        {g}
+                      </ThemedText>
+                      <Feather
+                        name={
+                          expandedDimension === g
+                            ? "chevron-up"
+                            : "chevron-down"
+                        }
+                        size={14}
+                        color={EarthyColors.copper}
+                      />
+                    </View>
+                    {expandedDimension === g && (
+                      <ThemedText
+                        style={[
+                          styles.developmentTip,
+                          { color: EarthyColors.copper, marginTop: Spacing.sm },
+                        ]}
+                      >
+                        Focus on building consistency here. Small daily
+                        practices strengthen this skill.
+                      </ThemedText>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+
+              <ThemedText type="h4" style={styles.sectionTitle}>
+                Your Scores
+              </ThemedText>
+              <Card style={styles.dimensionsCard}>
+                {Object.entries(dimensionScores).map(([key, score]) => (
+                  <View key={key} style={styles.dimensionRow}>
+                    <View style={styles.dimensionInfo}>
+                      <Feather
+                        name={
+                          DIMENSION_ICONS[key as keyof DimensionScores] as any
+                        }
+                        size={16}
+                        color={theme.textSecondary}
+                      />
+                      <ThemedText style={styles.dimensionLabel}>
+                        {DIMENSION_LABELS[key as keyof DimensionScores]}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.dimensionBar}>
+                      <View
+                        style={[
+                          styles.dimensionFill,
+                          {
+                            width: `${(score / 5) * 100}%`,
+                            backgroundColor:
+                              score >= 4
+                                ? EarthyColors.forestGreen
+                                : score >= 3
+                                  ? EarthyColors.copper
+                                  : EarthyColors.rust,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <ThemedText
+                      style={[
+                        styles.dimensionScore,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {score.toFixed(1)}
+                    </ThemedText>
+                  </View>
+                ))}
+              </Card>
+
+              <View style={styles.buttonRow}>
+                <Pressable
+                  style={[styles.retakeButton, { borderColor: theme.border }]}
+                  onPress={handleRetake}
+                >
+                  <Feather name="refresh-cw" size={18} color={theme.text} />
+                  <ThemedText>Retake Test</ThemedText>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.doneButton,
+                    { backgroundColor: EarthyColors.forestGreen },
+                  ]}
+                  onPress={() => navigation.goBack()}
+                >
+                  <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
+                    Done
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </ThemedView>
       </ProGate>
     );
   }
@@ -362,133 +442,172 @@ export default function SelfRegulationTestScreen() {
 
   return (
     <ProGate feature="selfRegulationTest" featureName="Self-Regulation Test">
-    <ThemedView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: headerHeight + Spacing.lg, paddingBottom: insets.bottom + Spacing.xl },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.introCard, { backgroundColor: `${EarthyColors.forestGreen}10` }]}>
-          <Feather name="clipboard" size={24} color={EarthyColors.forestGreen} />
-          <ThemedText style={[styles.introText, { color: theme.text }]}>
-            Answer honestly. This 12-question assessment reveals your self-regulation
-            strengths and growth areas.
-          </ThemedText>
-        </View>
-
-        <View style={styles.progressSection}>
-          <View style={styles.progressHeader}>
-            <ThemedText style={{ color: theme.textSecondary }}>
-              Question {currentQuestion + 1} of {QUESTIONS.length}
-            </ThemedText>
-            <ThemedText style={{ color: theme.textSecondary }}>
-              {Math.round(progress * 100)}%
-            </ThemedText>
-          </View>
-          <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${progress * 100}%`, backgroundColor: EarthyColors.forestGreen },
-              ]}
-            />
-          </View>
-        </View>
-
-        <Animated.View key={currentQuestion} entering={SlideInRight.duration(300)}>
-          <Card style={styles.questionCard}>
-            <ThemedText type="h4" style={styles.questionText}>
-              {question.text}
-            </ThemedText>
-
-            <View style={styles.answersContainer}>
-              {ANSWER_OPTIONS.map((option) => {
-                const selected = answers[question.id] === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    style={[
-                      styles.answerOption,
-                      {
-                        backgroundColor: selected
-                          ? `${EarthyColors.forestGreen}15`
-                          : theme.backgroundSecondary,
-                        borderColor: selected ? EarthyColors.forestGreen : theme.border,
-                      },
-                    ]}
-                    onPress={() => handleAnswer(question.id, option.value)}
-                  >
-                    <View
-                      style={[
-                        styles.radio,
-                        {
-                          borderColor: selected ? EarthyColors.forestGreen : theme.border,
-                          backgroundColor: selected ? EarthyColors.forestGreen : "transparent",
-                        },
-                      ]}
-                    >
-                      {selected ? <View style={styles.radioInner} /> : null}
-                    </View>
-                    <ThemedText
-                      style={[
-                        styles.answerLabel,
-                        { color: selected ? EarthyColors.forestGreen : theme.text },
-                      ]}
-                    >
-                      {option.label}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </Card>
-        </Animated.View>
-
-        <View style={styles.navRow}>
-          <Pressable
-            style={[styles.navButton, { borderColor: theme.border }]}
-            onPress={() => setCurrentQuestion(Math.max(0, currentQuestion - 1))}
-            disabled={currentQuestion === 0}
+      <ThemedView style={styles.container}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: headerHeight + Spacing.lg,
+              paddingBottom: insets.bottom + Spacing.xl,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            style={[
+              styles.introCard,
+              { backgroundColor: `${EarthyColors.forestGreen}10` },
+            ]}
           >
             <Feather
-              name="chevron-left"
-              size={20}
-              color={currentQuestion === 0 ? theme.border : theme.text}
+              name="clipboard"
+              size={24}
+              color={EarthyColors.forestGreen}
             />
-          </Pressable>
+            <ThemedText style={[styles.introText, { color: theme.text }]}>
+              Answer honestly. This 12-question assessment reveals your
+              self-regulation strengths and growth areas.
+            </ThemedText>
+          </View>
 
-          {isComplete ? (
-            <Pressable
-              style={[styles.completeButton, { backgroundColor: EarthyColors.forestGreen }]}
-              onPress={handleComplete}
-            >
-              <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
-                See My Results
+          <View style={styles.progressSection}>
+            <View style={styles.progressHeader}>
+              <ThemedText style={{ color: theme.textSecondary }}>
+                Question {currentQuestion + 1} of {QUESTIONS.length}
               </ThemedText>
-              <Feather name="arrow-right" size={18} color="#fff" />
-            </Pressable>
-          ) : (
+              <ThemedText style={{ color: theme.textSecondary }}>
+                {Math.round(progress * 100)}%
+              </ThemedText>
+            </View>
+            <View
+              style={[styles.progressBar, { backgroundColor: theme.border }]}
+            >
+              <View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: `${progress * 100}%`,
+                    backgroundColor: EarthyColors.forestGreen,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          <Animated.View
+            key={currentQuestion}
+            entering={SlideInRight.duration(300)}
+          >
+            <Card style={styles.questionCard}>
+              <ThemedText type="h4" style={styles.questionText}>
+                {question.text}
+              </ThemedText>
+
+              <View style={styles.answersContainer}>
+                {ANSWER_OPTIONS.map((option) => {
+                  const selected = answers[question.id] === option.value;
+                  return (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.answerOption,
+                        {
+                          backgroundColor: selected
+                            ? `${EarthyColors.forestGreen}15`
+                            : theme.backgroundSecondary,
+                          borderColor: selected
+                            ? EarthyColors.forestGreen
+                            : theme.border,
+                        },
+                      ]}
+                      onPress={() => handleAnswer(question.id, option.value)}
+                    >
+                      <View
+                        style={[
+                          styles.radio,
+                          {
+                            borderColor: selected
+                              ? EarthyColors.forestGreen
+                              : theme.border,
+                            backgroundColor: selected
+                              ? EarthyColors.forestGreen
+                              : "transparent",
+                          },
+                        ]}
+                      >
+                        {selected ? <View style={styles.radioInner} /> : null}
+                      </View>
+                      <ThemedText
+                        style={[
+                          styles.answerLabel,
+                          {
+                            color: selected
+                              ? EarthyColors.forestGreen
+                              : theme.text,
+                          },
+                        ]}
+                      >
+                        {option.label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+          </Animated.View>
+
+          <View style={styles.navRow}>
             <Pressable
               style={[styles.navButton, { borderColor: theme.border }]}
               onPress={() =>
-                setCurrentQuestion(Math.min(QUESTIONS.length - 1, currentQuestion + 1))
+                setCurrentQuestion(Math.max(0, currentQuestion - 1))
               }
-              disabled={currentQuestion === QUESTIONS.length - 1}
+              disabled={currentQuestion === 0}
             >
               <Feather
-                name="chevron-right"
+                name="chevron-left"
                 size={20}
-                color={
-                  currentQuestion === QUESTIONS.length - 1 ? theme.border : theme.text
-                }
+                color={currentQuestion === 0 ? theme.border : theme.text}
               />
             </Pressable>
-          )}
-        </View>
-      </ScrollView>
-    </ThemedView>
+
+            {isComplete ? (
+              <Pressable
+                style={[
+                  styles.completeButton,
+                  { backgroundColor: EarthyColors.forestGreen },
+                ]}
+                onPress={handleComplete}
+              >
+                <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
+                  See My Results
+                </ThemedText>
+                <Feather name="arrow-right" size={18} color="#fff" />
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[styles.navButton, { borderColor: theme.border }]}
+                onPress={() =>
+                  setCurrentQuestion(
+                    Math.min(QUESTIONS.length - 1, currentQuestion + 1)
+                  )
+                }
+                disabled={currentQuestion === QUESTIONS.length - 1}
+              >
+                <Feather
+                  name="chevron-right"
+                  size={20}
+                  color={
+                    currentQuestion === QUESTIONS.length - 1
+                      ? theme.border
+                      : theme.text
+                  }
+                />
+              </Pressable>
+            )}
+          </View>
+        </ScrollView>
+      </ThemedView>
     </ProGate>
   );
 }
@@ -631,6 +750,12 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
     marginBottom: Spacing.xl,
+  },
+  testNote: {
+    fontSize: 13,
+  },
+  developmentTip: {
+    fontSize: 12,
   },
   dimensionRow: {
     flexDirection: "row",

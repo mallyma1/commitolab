@@ -6,3 +6,18 @@ dist
 npm-debug.log*
 yarn.lock
 pnpm-lock.yaml
+
+# Secrets and credentials
+secrets/
+*.p8
+*.p12
+*.mobileprovision
+*.jks
+*.keystore
+google-play-service-account.json
+
+# Environment files with real values
+.env
+.env.local
+.env.production
+.env.*.local

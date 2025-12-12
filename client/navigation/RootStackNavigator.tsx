@@ -9,12 +9,19 @@ import CommitmentWizardScreen from "@/screens/CommitmentWizardScreen";
 import CheckInScreen from "@/screens/CheckInScreen";
 import CommitmentDetailScreen from "@/screens/CommitmentDetailScreen";
 import StoicRoomScreen from "@/screens/StoicRoomScreen";
-import { OnboardingNavigator, OnboardingCompleteData } from "@/onboarding/OnboardingNavigator";
+import {
+  OnboardingNavigator,
+  OnboardingCompleteData,
+} from "@/onboarding/OnboardingNavigator";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { Commitment } from "@/hooks/useCommitments";
-import { ONBOARDING_DATA_KEY, HAS_EVER_LOGGED_IN_KEY, type OnboardingData } from "@/types/onboarding";
+import {
+  ONBOARDING_DATA_KEY,
+  HAS_EVER_LOGGED_IN_KEY,
+  type OnboardingData,
+} from "@/types/onboarding";
 
 export type { OnboardingData };
 
@@ -35,7 +42,9 @@ export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { isAuthenticated, isLoading } = useAuth();
   const { theme } = useTheme();
-  const [shouldShowOnboarding, setShouldShowOnboarding] = useState<boolean | null>(null);
+  const [shouldShowOnboarding, setShouldShowOnboarding] = useState<
+    boolean | null
+  >(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   useEffect(() => {
@@ -48,10 +57,10 @@ export default function RootStackNavigator() {
         AsyncStorage.getItem(ONBOARDING_DATA_KEY),
         AsyncStorage.getItem(HAS_EVER_LOGGED_IN_KEY),
       ]);
-      
+
       const hasOnboardingData = !!onboardingData;
       const isReturningUser = !!hasEverLoggedIn;
-      
+
       setShouldShowOnboarding(!hasOnboardingData && !isReturningUser);
     } catch (error) {
       console.error("Error checking onboarding status:", error);
@@ -61,25 +70,38 @@ export default function RootStackNavigator() {
     }
   };
 
-  const handleOnboardingComplete = useCallback(async (data: OnboardingCompleteData) => {
-    try {
-      const onboardingData: OnboardingData = {
-        completed: true,
-        payload: data.payload,
-        summary: data.summary ?? undefined,
-        recommendations: data.recommendations,
-        selectedRecommendations: data.selectedRecommendations,
-      };
-      await AsyncStorage.setItem(ONBOARDING_DATA_KEY, JSON.stringify(onboardingData));
-      setShouldShowOnboarding(false);
-    } catch (error) {
-      console.error("Error saving onboarding data:", error);
-    }
-  }, []);
+  const handleOnboardingComplete = useCallback(
+    async (data: OnboardingCompleteData) => {
+      try {
+        const onboardingData: OnboardingData = {
+          completed: true,
+          payload: data.payload,
+          summary: data.summary ?? undefined,
+          recommendations: data.recommendations,
+          selectedRecommendations: data.selectedRecommendations,
+        };
+        await AsyncStorage.setItem(
+          ONBOARDING_DATA_KEY,
+          JSON.stringify(onboardingData)
+        );
+        setShouldShowOnboarding(false);
+      } catch (error) {
+        console.error("Error saving onboarding data:", error);
+      }
+    },
+    []
+  );
 
   if (isLoading || checkingOnboarding) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.backgroundRoot }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.backgroundRoot,
+        }}
+      >
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
@@ -88,10 +110,7 @@ export default function RootStackNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       {shouldShowOnboarding && !isAuthenticated ? (
-        <Stack.Screen
-          name="Onboarding"
-          options={{ headerShown: false }}
-        >
+        <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
           {() => <OnboardingNavigator onComplete={handleOnboardingComplete} />}
         </Stack.Screen>
       ) : !isAuthenticated ? (

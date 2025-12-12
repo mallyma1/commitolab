@@ -182,33 +182,33 @@ export function getRecommendedTemplates(
   focusArea: string,
   motivations: string[]
 ): CommitmentTemplate[] {
-  const normalizedMotivations = motivations.map(m => 
+  const normalizedMotivations = motivations.map((m) =>
     m.toLowerCase().replace(/\s+/g, "_")
   );
 
-  const scored = commitmentTemplates.map(template => {
+  const scored = commitmentTemplates.map((template) => {
     let score = 0;
-    
+
     if (template.focusAreas.includes(focusArea.toLowerCase())) {
       score += 3;
     }
-    
+
     for (const tag of template.motivationTags) {
       if (normalizedMotivations.includes(tag)) {
         score += 2;
       }
     }
-    
+
     return { template, score };
   });
 
   return scored
-    .filter(item => item.score > 0)
+    .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 6)
-    .map(item => item.template);
+    .map((item) => item.template);
 }
 
 export function getTemplateById(id: string): CommitmentTemplate | undefined {
-  return commitmentTemplates.find(t => t.id === id);
+  return commitmentTemplates.find((t) => t.id === id);
 }

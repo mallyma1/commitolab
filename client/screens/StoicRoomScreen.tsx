@@ -1,11 +1,5 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  Share,
-  Platform,
-} from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, Pressable, Share } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -13,33 +7,36 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ProGate } from "@/components/ProGate";
-import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, EarthyColors, Gradients } from "@/constants/theme";
+import { Spacing, BorderRadius, EarthyColors } from "@/constants/theme";
 
 const STOIC_QUOTES = [
   {
     text: "We suffer more often in imagination than in reality.",
     author: "Seneca",
     source: "Letters from a Stoic",
-    explanation: "Your mind amplifies problems. Most worries never materialize.",
+    explanation:
+      "Your mind amplifies problems. Most worries never materialize.",
   },
   {
     text: "The happiness of your life depends upon the quality of your thoughts.",
     author: "Marcus Aurelius",
     source: "Meditations",
-    explanation: "You control your inner world. Choose thoughts that serve you.",
+    explanation:
+      "You control your inner world. Choose thoughts that serve you.",
   },
   {
     text: "No man is free who is not master of himself.",
     author: "Epictetus",
     source: "Discourses",
-    explanation: "True freedom comes from self-discipline, not external circumstances.",
+    explanation:
+      "True freedom comes from self-discipline, not external circumstances.",
   },
   {
     text: "It is not things that disturb us, but our judgments about things.",
     author: "Epictetus",
     source: "Enchiridion",
-    explanation: "Events are neutral. Your interpretation creates your experience.",
+    explanation:
+      "Events are neutral. Your interpretation creates your experience.",
   },
   {
     text: "Begin at once to live, and count each separate day as a separate life.",
@@ -80,7 +77,6 @@ const STOIC_QUOTES = [
 ];
 
 export default function StoicRoomScreen() {
-  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [currentQuote, setCurrentQuote] = useState(0);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -115,106 +111,126 @@ export default function StoicRoomScreen() {
 
   return (
     <ProGate feature="stoicRoom" featureName="Stoic Room">
-    <LinearGradient
-      colors={[EarthyColors.warmCharcoal, EarthyColors.deepEarth]}
-      style={styles.container}
-    >
-      <View
-        style={[
-          styles.content,
-          {
-            paddingTop: insets.top + Spacing.xl,
-            paddingBottom: insets.bottom + Spacing.xl,
-          },
-        ]}
+      <LinearGradient
+        colors={[EarthyColors.warmCharcoal, EarthyColors.deepEarth]}
+        style={styles.container}
       >
-        <View style={styles.header}>
-          <ThemedText type="h3" style={styles.title}>
-            Stoic Room
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Daily wisdom for the disciplined mind
-          </ThemedText>
-        </View>
-
-        <View style={styles.quoteContainer}>
-          <Animated.View
-            key={currentQuote}
-            entering={FadeIn.duration(400)}
-            exiting={FadeOut.duration(200)}
-            style={styles.quoteCard}
-          >
-            <View style={styles.quoteMarks}>
-              <ThemedText style={styles.quoteMark}>"</ThemedText>
-            </View>
-            <ThemedText style={styles.quoteText}>{quote.text}</ThemedText>
-            <View style={styles.attribution}>
-              <ThemedText style={styles.author}>{quote.author}</ThemedText>
-              <ThemedText style={styles.source}>{quote.source}</ThemedText>
-            </View>
-
-            {showExplanation ? (
-              <Animated.View
-                entering={FadeIn.duration(300)}
-                style={[
-                  styles.explanationCard,
-                  { backgroundColor: `${EarthyColors.sandBeige}15` },
-                ]}
-              >
-                <Feather name="info" size={16} color={EarthyColors.sandBeige} />
-                <ThemedText style={styles.explanationText}>
-                  {quote.explanation}
-                </ThemedText>
-              </Animated.View>
-            ) : null}
-          </Animated.View>
-        </View>
-
-        <View style={styles.actions}>
-          <Pressable
-            style={[styles.actionButton, { backgroundColor: `${EarthyColors.sandBeige}20` }]}
-            onPress={() => setShowExplanation(!showExplanation)}
-          >
-            <Feather
-              name="help-circle"
-              size={20}
-              color={EarthyColors.sandBeige}
-            />
-            <ThemedText style={styles.actionText}>
-              {showExplanation ? "Hide meaning" : "Why this quote?"}
+        <View
+          style={[
+            styles.content,
+            {
+              paddingTop: insets.top + Spacing.xl,
+              paddingBottom: insets.bottom + Spacing.xl,
+            },
+          ]}
+        >
+          <View style={styles.header}>
+            <ThemedText type="h3" style={styles.title}>
+              Stoic Room
             </ThemedText>
-          </Pressable>
+            <ThemedText style={styles.subtitle}>
+              Daily wisdom for the disciplined mind
+            </ThemedText>
+          </View>
 
-          <View style={styles.iconActions}>
+          <View style={styles.quoteContainer}>
+            <Animated.View
+              key={currentQuote}
+              entering={FadeIn.duration(400)}
+              exiting={FadeOut.duration(200)}
+              style={styles.quoteCard}
+            >
+              <View style={styles.quoteMarks}>
+                <ThemedText style={styles.quoteMark}>"</ThemedText>
+              </View>
+              <ThemedText style={styles.quoteText}>{quote.text}</ThemedText>
+              <View style={styles.attribution}>
+                <ThemedText style={styles.author}>{quote.author}</ThemedText>
+                <ThemedText style={styles.source}>{quote.source}</ThemedText>
+              </View>
+
+              {showExplanation ? (
+                <Animated.View
+                  entering={FadeIn.duration(300)}
+                  style={[
+                    styles.explanationCard,
+                    { backgroundColor: `${EarthyColors.sandBeige}15` },
+                  ]}
+                >
+                  <Feather
+                    name="info"
+                    size={16}
+                    color={EarthyColors.sandBeige}
+                  />
+                  <ThemedText style={styles.explanationText}>
+                    {quote.explanation}
+                  </ThemedText>
+                </Animated.View>
+              ) : null}
+            </Animated.View>
+          </View>
+
+          <View style={styles.actions}>
             <Pressable
-              style={[styles.iconButton, { backgroundColor: `${EarthyColors.sandBeige}20` }]}
-              onPress={handleSaveQuote}
+              style={[
+                styles.actionButton,
+                { backgroundColor: `${EarthyColors.sandBeige}20` },
+              ]}
+              onPress={() => setShowExplanation(!showExplanation)}
             >
               <Feather
-                name={isSaved ? "bookmark" : "bookmark"}
+                name="help-circle"
                 size={20}
-                color={isSaved ? EarthyColors.gold : EarthyColors.sandBeige}
+                color={EarthyColors.sandBeige}
               />
+              <ThemedText style={styles.actionText}>
+                {showExplanation ? "Hide meaning" : "Why this quote?"}
+              </ThemedText>
             </Pressable>
 
-            <Pressable
-              style={[styles.iconButton, { backgroundColor: `${EarthyColors.sandBeige}20` }]}
-              onPress={handleShareQuote}
-            >
-              <Feather name="share" size={20} color={EarthyColors.sandBeige} />
-            </Pressable>
+            <View style={styles.iconActions}>
+              <Pressable
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: `${EarthyColors.sandBeige}20` },
+                ]}
+                onPress={handleSaveQuote}
+              >
+                <Feather
+                  name={isSaved ? "bookmark" : "bookmark"}
+                  size={20}
+                  color={isSaved ? EarthyColors.gold : EarthyColors.sandBeige}
+                />
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.iconButton,
+                  { backgroundColor: `${EarthyColors.sandBeige}20` },
+                ]}
+                onPress={handleShareQuote}
+              >
+                <Feather
+                  name="share"
+                  size={20}
+                  color={EarthyColors.sandBeige}
+                />
+              </Pressable>
+            </View>
           </View>
-        </View>
 
-        <Pressable
-          style={[styles.nextButton, { backgroundColor: EarthyColors.copper }]}
-          onPress={handleNextQuote}
-        >
-          <ThemedText style={styles.nextText}>Next Quote</ThemedText>
-          <Feather name="arrow-right" size={20} color="#fff" />
-        </Pressable>
-      </View>
-    </LinearGradient>
+          <Pressable
+            style={[
+              styles.nextButton,
+              { backgroundColor: EarthyColors.copper },
+            ]}
+            onPress={handleNextQuote}
+          >
+            <ThemedText style={styles.nextText}>Next Quote</ThemedText>
+            <Feather name="arrow-right" size={20} color="#fff" />
+          </Pressable>
+        </View>
+      </LinearGradient>
     </ProGate>
   );
 }

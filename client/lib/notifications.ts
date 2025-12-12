@@ -61,8 +61,13 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   }
 }
 
-export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
-  await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+export async function saveNotificationSettings(
+  settings: NotificationSettings
+): Promise<void> {
+  await AsyncStorage.setItem(
+    NOTIFICATION_SETTINGS_KEY,
+    JSON.stringify(settings)
+  );
 
   if (settings.enabled && settings.dailyReminder) {
     await scheduleDailyReminder(settings.dailyReminderTime);
@@ -97,7 +102,10 @@ export async function cancelAllScheduledNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync();
 }
 
-export async function sendStreakWarning(commitmentTitle: string, currentStreak: number): Promise<void> {
+export async function sendStreakWarning(
+  commitmentTitle: string,
+  currentStreak: number
+): Promise<void> {
   if (Platform.OS === "web") return;
 
   const settings = await getNotificationSettings();
@@ -129,7 +137,10 @@ export async function sendMotivationalMessage(message: string): Promise<void> {
   });
 }
 
-export async function sendStreakMilestone(commitmentTitle: string, streak: number): Promise<void> {
+export async function sendStreakMilestone(
+  commitmentTitle: string,
+  streak: number
+): Promise<void> {
   if (Platform.OS === "web") return;
 
   await Notifications.scheduleNotificationAsync({
@@ -192,7 +203,10 @@ export async function unregisterPushToken(): Promise<void> {
   if (!storedToken) return;
 
   try {
-    await apiRequest("DELETE", `/api/push-tokens/${encodeURIComponent(storedToken)}`);
+    await apiRequest(
+      "DELETE",
+      `/api/push-tokens/${encodeURIComponent(storedToken)}`
+    );
     await AsyncStorage.removeItem(PUSH_TOKEN_KEY);
   } catch (error) {
     console.log("Failed to unregister push token:", error);

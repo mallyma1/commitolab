@@ -1,5 +1,18 @@
 import { Platform } from "react-native";
 
+// Premium Neurochemical Palette for Dopamine Lab
+export const PremiumColors = {
+  forestGreen: "#2F6F4E",
+  copperOrange: "#D97C3F",
+  skyBlue: "#7EC6E8",
+  sandBeige: "#E6DCC7",
+  textPrimary: "#1B1B1B",
+  textSecondary: "#7A7A7A",
+  borderLight: "#E2E2E2",
+  backgroundMain: "#FAF8F4",
+  cardBackground: "#FFFFFF99", // slight translucency
+};
+
 export const EarthyColors = {
   terraBrown: "#8B5A2B",
   clayRed: "#C67B5C",
@@ -13,6 +26,12 @@ export const EarthyColors = {
   sage: "#9CAF88",
   rust: "#B7472A",
   gold: "#C9A227",
+  // Dopamine Lab specific colors - softer, modern palette
+  dopaminePrimary: "#6B9BD1",
+  dopamineSuccess: "#7BC67E",
+  dopamineGlow: "#A8D5BA",
+  dopamineMuted: "#E8F4F8",
+  dopamineAccent: "#FF8C69",
 };
 
 export const Colors = {
@@ -69,6 +88,7 @@ export const Spacing = {
   lg: 24,
   xl: 32,
   xxl: 48,
+  "2xl": 48, // alias for xxl
   inputHeight: 56,
   buttonHeight: 56,
 };

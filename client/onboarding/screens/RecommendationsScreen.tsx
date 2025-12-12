@@ -1,12 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
 import { useOnboardingContext } from "../OnboardingContext";
-import type { CommitmentRecommendation, OnboardingPayload, HabitProfileSummary } from "../../../shared/onboardingTypes";
+import type {
+  CommitmentRecommendation,
+  OnboardingPayload,
+  HabitProfileSummary,
+} from "@/shared/onboardingTypes";
 
 type OnboardingCompleteData = {
   payload: OnboardingPayload;
@@ -23,7 +33,16 @@ type Props = {
 export function RecommendationsScreen({ navigation, onComplete }: Props) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { payload, summary, recommendations, aiLoading } = useOnboardingContext();
+  const {
+    payload,
+    summary,
+    recommendations,
+    aiLoading,
+    recommendationsSource,
+    aiTimedOut,
+    aiError,
+    prefetchAI,
+  } = useOnboardingContext();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -65,7 +84,7 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
     );
   }
 
-  if (aiLoading || recommendations.length === 0) {
+  if (recommendations.length === 0) {
     return (
       <View
         style={[
@@ -75,12 +94,17 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
         ]}
       >
         <ActivityIndicator size="large" color={theme.primary} />
-        <ThemedText style={[styles.loadingText, { color: theme.textSecondary }]}>
-          Designing realistic streaks for you...
+        <ThemedText
+          style={[styles.loadingText, { color: theme.textSecondary }]}
+        >
+          Preparing starter streaks for you...
         </ThemedText>
       </View>
     );
   }
+
+  const isUsingFallback = recommendationsSource !== "server";
+  const isRefining = aiLoading && recommendations.length > 0;
 
   const cadenceIcon = (cadence: string) => {
     return cadence === "daily" ? "calendar" : "repeat";
@@ -110,7 +134,10 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
@@ -119,6 +146,55 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
           Tap to select the ones you want to start with. You can add more later.
         </ThemedText>
+
+        {(isRefining || isUsingFallback) && (
+          <View
+            style={[
+              styles.notice,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <ThemedText style={[styles.noticeTitle, { color: theme.text }]}>
+              Starter picks are ready
+            </ThemedText>
+            <ThemedText
+              style={[styles.noticeText, { color: theme.textSecondary }]}
+            >
+              We will swap in AI-tuned recommendations as soon as they finish.
+            </ThemedText>
+          </View>
+        )}
+
+        {(aiTimedOut || aiError) && (
+          <View
+            style={[
+              styles.notice,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+          >
+            <ThemedText style={[styles.noticeTitle, { color: theme.text }]}>
+              Still using quick picks
+            </ThemedText>
+            <ThemedText
+              style={[styles.noticeText, { color: theme.textSecondary }]}
+            >
+              AI did not finish yet. You can continue or retry while keeping
+              these.
+            </ThemedText>
+            <Pressable
+              style={[styles.retryButton, { borderColor: theme.border }]}
+              onPress={() => prefetchAI(payload)}
+            >
+              <ThemedText>Retry AI now</ThemedText>
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.recList}>
           {recommendations.map((rec, idx) => {
@@ -130,7 +206,9 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
                 style={[
                   styles.recCard,
                   {
-                    backgroundColor: selected ? theme.primary + "10" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "10"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
@@ -140,33 +218,54 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
                     style={[
                       styles.checkbox,
                       {
-                        backgroundColor: selected ? theme.primary : "transparent",
+                        backgroundColor: selected
+                          ? theme.primary
+                          : "transparent",
                         borderColor: selected ? theme.primary : theme.border,
                       },
                     ]}
                   >
-                    {selected ? <Feather name="check" size={14} color="#fff" /> : null}
+                    {selected ? (
+                      <Feather name="check" size={14} color="#fff" />
+                    ) : null}
                   </View>
                   <ThemedText style={styles.recTitle}>{rec.title}</ThemedText>
                 </View>
-                <ThemedText style={[styles.recDesc, { color: theme.textSecondary }]}>
+                <ThemedText
+                  style={[styles.recDesc, { color: theme.textSecondary }]}
+                >
                   {rec.short_description}
                 </ThemedText>
                 <View style={styles.recMeta}>
                   <View style={styles.metaItem}>
-                    <Feather name={cadenceIcon(rec.cadence)} size={14} color={theme.textSecondary} />
-                    <ThemedText style={[styles.metaText, { color: theme.textSecondary }]}>
-                      {rec.cadence.charAt(0).toUpperCase() + rec.cadence.slice(1)}
+                    <Feather
+                      name={cadenceIcon(rec.cadence)}
+                      size={14}
+                      color={theme.textSecondary}
+                    />
+                    <ThemedText
+                      style={[styles.metaText, { color: theme.textSecondary }]}
+                    >
+                      {rec.cadence.charAt(0).toUpperCase() +
+                        rec.cadence.slice(1)}
                     </ThemedText>
                   </View>
                   <View style={styles.metaItem}>
-                    <Feather name="camera" size={14} color={theme.textSecondary} />
-                    <ThemedText style={[styles.metaText, { color: theme.textSecondary }]}>
+                    <Feather
+                      name="camera"
+                      size={14}
+                      color={theme.textSecondary}
+                    />
+                    <ThemedText
+                      style={[styles.metaText, { color: theme.textSecondary }]}
+                    >
                       {proofLabel(rec.proof_mode)}
                     </ThemedText>
                   </View>
                 </View>
-                <ThemedText style={[styles.recReason, { color: theme.textSecondary }]}>
+                <ThemedText
+                  style={[styles.recReason, { color: theme.textSecondary }]}
+                >
                   {rec.reason}
                 </ThemedText>
               </Pressable>
@@ -177,10 +276,15 @@ export function RecommendationsScreen({ navigation, onComplete }: Props) {
         <Pressable
           style={[
             styles.primaryButton,
-            { backgroundColor: selectedIds.size > 0 ? theme.primary : theme.border },
+            {
+              backgroundColor:
+                selectedIds.size > 0 ? theme.primary : theme.border,
+            },
           ]}
           onPress={() => {
-            const selectedRecs = recommendations.filter((_, idx) => selectedIds.has(idx));
+            const selectedRecs = recommendations.filter((_, idx) =>
+              selectedIds.has(idx)
+            );
             onComplete({
               payload,
               summary,
@@ -223,6 +327,21 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: Spacing.md,
     fontSize: 14,
+  },
+  notice: {
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  noticeTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  noticeText: {
+    marginTop: Spacing.xs,
+    fontSize: 12,
+    lineHeight: 18,
   },
   errorText: {
     marginTop: Spacing.md,

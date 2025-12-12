@@ -1,6 +1,10 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import {
+  registerRoutes,
+  registerAiRoutes,
+  registerAiDomainEndpoints,
+} from "./routes";
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -47,6 +51,8 @@ function getUserId(req: Request): string {
   return "local-dev-user";
 }
 
+// Simple in-memory dopamine lab storage.
+// Uses x-session-id header for user id, or falls back to 'local-dev-user' for easy local testing.
 function registerDopamineRoutes(app: express.Application) {
   // GET /api/dopamine/today
   app.get("/api/dopamine/today", (req: Request, res: Response) => {
@@ -61,20 +67,19 @@ function registerDopamineRoutes(app: express.Application) {
     const userId = getUserId(req);
     const key = `${userId}:${todayISO()}`;
 
-    const prev: DopamineState =
-      dopamineStore.get(key) || {
-        date: todayISO(),
-        movedBody: false,
-        daylight: false,
-        social: false,
-        creative: false,
-        music: false,
-        learning: false,
-        coldExposure: false,
-        protectedSleep: false,
-        stillness: false,
-        natureTime: false,
-      };
+    const prev: DopamineState = dopamineStore.get(key) || {
+      date: todayISO(),
+      movedBody: false,
+      daylight: false,
+      social: false,
+      creative: false,
+      music: false,
+      learning: false,
+      coldExposure: false,
+      protectedSleep: false,
+      stillness: false,
+      natureTime: false,
+    };
 
     const body = req.body as Partial<DopaminePayload>;
 
@@ -107,12 +112,16 @@ function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
 
+    // Add localhost for local development
+    origins.add("http://localhost:8081");
+    origins.add("http://localhost:19006");
+
     if (process.env.REPLIT_DEV_DOMAIN) {
       origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
     }
 
     if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
+      process.env.REPLIT_DOMAINS.split(",").forEach((d: string) => {
         origins.add(`https://${d.trim()}`);
       });
     }
@@ -330,7 +339,7 @@ async function initStripe() {
       {
         enabled_events: ["*"],
         description: "Managed webhook for StreakProof",
-      }
+      },
     );
     log(`Webhook configured: ${webhook.url} (UUID: ${uuid})`);
 
@@ -377,7 +386,7 @@ async function initStripe() {
         log("Webhook error:", error.message);
         res.status(400).json({ error: "Webhook processing error" });
       }
-    }
+    },
   );
 
   setupBodyParsing(app);
@@ -389,6 +398,11 @@ async function initStripe() {
   await initStripe();
 
   configureExpoAndLanding(app);
+
+  // Register AI coaching endpoints
+  registerAiRoutes(app);
+  // Register domain-specific AI endpoints
+  registerAiDomainEndpoints(app);
 
   const server = await registerRoutes(app);
 
@@ -406,4 +420,3 @@ async function initStripe() {
     },
   );
 })();
-

@@ -15,17 +15,20 @@ const changeStyleOptions = [
   {
     id: "slow_and_steady",
     label: "Slow and steady",
-    description: "I prefer small changes that build over time. Sustainable beats intense.",
+    description:
+      "I prefer small changes that build over time. Sustainable beats intense.",
   },
   {
     id: "deep_dive",
     label: "Deep dive",
-    description: "I like to go all in. I would rather commit hard and adjust later.",
+    description:
+      "I like to go all in. I would rather commit hard and adjust later.",
   },
   {
     id: "structured_plan",
     label: "Structured plan",
-    description: "I want a clear schedule and reminders. I need the scaffolding.",
+    description:
+      "I want a clear schedule and reminders. I need the scaffolding.",
   },
   {
     id: "flexible_flow",
@@ -57,14 +60,18 @@ export function ChangeStyleScreen({ navigation }: Props) {
       ]}
     >
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + Spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="h2" style={styles.heading}>
           How do you prefer to change?
         </ThemedText>
         <ThemedText style={[styles.subheading, { color: theme.textSecondary }]}>
-          Pick the one that feels most like you. We will design your streak intensity around this.
+          Pick the one that feels most like you. We will design your streak
+          intensity around this.
         </ThemedText>
 
         <View style={styles.optionList}>
@@ -77,19 +84,30 @@ export function ChangeStyleScreen({ navigation }: Props) {
                 style={[
                   styles.optionCard,
                   {
-                    backgroundColor: selected ? theme.primary + "15" : theme.backgroundDefault,
+                    backgroundColor: selected
+                      ? theme.primary + "15"
+                      : theme.backgroundDefault,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
               >
                 <View style={styles.optionContent}>
-                  <ThemedText style={styles.optionLabel}>{option.label}</ThemedText>
-                  <ThemedText style={[styles.optionDesc, { color: theme.textSecondary }]}>
+                  <ThemedText style={styles.optionLabel}>
+                    {option.label}
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.optionDesc, { color: theme.textSecondary }]}
+                  >
                     {option.description}
                   </ThemedText>
                 </View>
                 {selected ? (
-                  <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
+                  <View
+                    style={[
+                      styles.checkBadge,
+                      { backgroundColor: theme.primary },
+                    ]}
+                  >
                     <Feather name="check" size={14} color="#fff" />
                   </View>
                 ) : null}

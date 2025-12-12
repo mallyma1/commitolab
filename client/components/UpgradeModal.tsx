@@ -1,5 +1,13 @@
 import React from "react";
-import { View, Modal, StyleSheet, Pressable, ScrollView, Platform, Linking, Alert } from "react-native";
+import {
+  View,
+  Modal,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Linking,
+  Alert,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -16,13 +24,6 @@ interface UpgradeModalProps {
   feature?: string;
 }
 
-interface PriceData {
-  price_id: string;
-  unit_amount: number;
-  currency: string;
-  recurring: { interval: string } | null;
-}
-
 interface ProductWithPrices {
   product_id: string;
   product_name: string;
@@ -33,21 +34,48 @@ interface ProductWithPrices {
 }
 
 const PRO_BENEFITS = [
-  { icon: "activity", title: "Dopamine Lab", desc: "Science-backed brain chemistry optimization" },
-  { icon: "feather", title: "Stoic Room", desc: "Daily philosophical reflections" },
-  { icon: "user-check", title: "Self-Regulation Test", desc: "Deep personality insights" },
-  { icon: "trending-up", title: "Advanced Analytics", desc: "Detailed streak statistics" },
-  { icon: "layers", title: "Unlimited Habits", desc: "Track as many commitments as you want" },
-  { icon: "bell", title: "Smart Reminders", desc: "Personalized notification timing" },
+  {
+    icon: "activity",
+    title: "Dopamine Lab",
+    desc: "Science-backed brain chemistry optimization",
+  },
+  {
+    icon: "feather",
+    title: "Stoic Room",
+    desc: "Daily philosophical reflections",
+  },
+  {
+    icon: "user-check",
+    title: "Self-Regulation Test",
+    desc: "Deep personality insights",
+  },
+  {
+    icon: "trending-up",
+    title: "Advanced Analytics",
+    desc: "Detailed streak statistics",
+  },
+  {
+    icon: "layers",
+    title: "Unlimited Habits",
+    desc: "Track as many commitments as you want",
+  },
+  {
+    icon: "bell",
+    title: "Smart Reminders",
+    desc: "Personalized notification timing",
+  },
 ] as const;
 
 export function UpgradeModal({ visible, onClose, feature }: UpgradeModalProps) {
   if (!visible) return null;
-  
+
   return <UpgradeModalContent onClose={onClose} feature={feature} />;
 }
 
-function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visible'>) {
+function UpgradeModalContent({
+  onClose,
+  feature,
+}: Omit<UpgradeModalProps, "visible">) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
 
@@ -72,7 +100,9 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
 
   const checkoutMutation = useMutation({
     mutationFn: async (priceId: string) => {
-      const response = await apiRequest("POST", "/api/stripe/checkout", { priceId });
+      const response = await apiRequest("POST", "/api/stripe/checkout", {
+        priceId,
+      });
       return response as { url: string };
     },
     onSuccess: async (data) => {
@@ -82,9 +112,12 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
           if (canOpen) {
             await Linking.openURL(data.url);
           } else {
-            Alert.alert("Unable to Open", "Could not open checkout page. Please try again.");
+            Alert.alert(
+              "Unable to Open",
+              "Could not open checkout page. Please try again."
+            );
           }
-        } catch (error) {
+        } catch {
           Alert.alert("Error", "Failed to open checkout page.");
         }
       }
@@ -95,9 +128,13 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
   });
 
   const handleUpgrade = async (period: "monthly" | "yearly") => {
-    const priceId = period === "monthly" ? monthlyPrice?.price_id : yearlyPrice?.price_id;
+    const priceId =
+      period === "monthly" ? monthlyPrice?.price_id : yearlyPrice?.price_id;
     if (!priceId) {
-      Alert.alert("Pricing Unavailable", "Subscription pricing is not available. Please try again later.");
+      Alert.alert(
+        "Pricing Unavailable",
+        "Subscription pricing is not available. Please try again later."
+      );
       return;
     }
     checkoutMutation.mutate(priceId);
@@ -137,7 +174,12 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
           showsVerticalScrollIndicator={false}
         >
           {feature ? (
-            <View style={[styles.featureCallout, { backgroundColor: `${EarthyColors.forestGreen}15` }]}>
+            <View
+              style={[
+                styles.featureCallout,
+                { backgroundColor: `${EarthyColors.forestGreen}15` },
+              ]}
+            >
               <Feather name="lock" size={20} color={EarthyColors.forestGreen} />
               <ThemedText style={styles.featureCalloutText}>
                 {feature} is a Pro feature
@@ -152,12 +194,25 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
           <View style={styles.benefits}>
             {PRO_BENEFITS.map((benefit, index) => (
               <View key={index} style={styles.benefitItem}>
-                <View style={[styles.benefitIcon, { backgroundColor: `${EarthyColors.terraBrown}15` }]}>
-                  <Feather name={benefit.icon as any} size={20} color={EarthyColors.terraBrown} />
+                <View
+                  style={[
+                    styles.benefitIcon,
+                    { backgroundColor: `${EarthyColors.terraBrown}15` },
+                  ]}
+                >
+                  <Feather
+                    name={benefit.icon as any}
+                    size={20}
+                    color={EarthyColors.terraBrown}
+                  />
                 </View>
                 <View style={styles.benefitText}>
-                  <ThemedText style={styles.benefitTitle}>{benefit.title}</ThemedText>
-                  <ThemedText style={[styles.benefitDesc, { color: theme.textSecondary }]}>
+                  <ThemedText style={styles.benefitTitle}>
+                    {benefit.title}
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.benefitDesc, { color: theme.textSecondary }]}
+                  >
                     {benefit.desc}
                   </ThemedText>
                 </View>
@@ -181,7 +236,9 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
               <ThemedText type="h2" style={styles.pricingAmount}>
                 {formatPrice(monthlyPrice?.unit_amount)}
               </ThemedText>
-              <ThemedText style={[styles.pricingPeriod, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.pricingPeriod, { color: theme.textSecondary }]}
+              >
                 per month
               </ThemedText>
             </Pressable>
@@ -198,14 +255,21 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
               onPress={() => handleUpgrade("yearly")}
               disabled={checkoutMutation.isPending}
             >
-              <View style={[styles.bestBadge, { backgroundColor: EarthyColors.forestGreen }]}>
+              <View
+                style={[
+                  styles.bestBadge,
+                  { backgroundColor: EarthyColors.forestGreen },
+                ]}
+              >
                 <ThemedText style={styles.bestBadgeText}>Save 33%</ThemedText>
               </View>
               <ThemedText style={styles.pricingLabel}>Yearly</ThemedText>
               <ThemedText type="h2" style={styles.pricingAmount}>
                 {formatPrice(yearlyPrice?.unit_amount)}
               </ThemedText>
-              <ThemedText style={[styles.pricingPeriod, { color: theme.textSecondary }]}>
+              <ThemedText
+                style={[styles.pricingPeriod, { color: theme.textSecondary }]}
+              >
                 per year
               </ThemedText>
             </Pressable>
@@ -220,7 +284,9 @@ function UpgradeModalContent({ onClose, feature }: Omit<UpgradeModalProps, 'visi
           </Button>
 
           <Pressable onPress={onClose} style={styles.skipButton}>
-            <ThemedText style={[styles.skipText, { color: theme.textSecondary }]}>
+            <ThemedText
+              style={[styles.skipText, { color: theme.textSecondary }]}
+            >
               Maybe later
             </ThemedText>
           </Pressable>

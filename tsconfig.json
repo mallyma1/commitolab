@@ -3,12 +3,13 @@
   "compilerOptions": {
     "strict": true,
     "esModuleInterop": true,
+    "baseUrl": "./client",
     "paths": {
-      "@/*": ["./client/*"],
-      "@shared/*": ["./shared/*"]
+      "@/*": ["./*"],
+      "@shared/*": ["../shared/*"]
     },
     "types": ["node"]
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"]
 }
