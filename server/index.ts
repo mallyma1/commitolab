@@ -1,10 +1,5 @@
 import express from "express";
-import type {
-  Request,
-  Response,
-  NextFunction,
-  Application,
-} from "express";
+import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
@@ -15,9 +10,9 @@ import * as path from "path";
 const app = express();
 const log = console.log;
 
-// Simple in memory store for Dopamine Lab (per user, per day).
-// This is temporary so the feature works end to end without touching the DB yet.
-// Later we can swap this to Supabase / Drizzle.
+// Dopamine Lab: simple in-memory per-user-per-day store.
+// This is enough to get the feature working end to end.
+// Later we can swap this for a database-backed implementation.
 type DopaminePayload = {
   movedBody: boolean;
   daylight: boolean;
@@ -27,6 +22,8 @@ type DopaminePayload = {
   learning: boolean;
   coldExposure: boolean;
   protectedSleep: boolean;
+  stillness: boolean;
+  natureTime: boolean;
 };
 
 type DopamineState = DopaminePayload & {
@@ -40,85 +37,65 @@ function todayISO(): string {
   return d.toISOString().split("T")[0];
 }
 
-// Very simple user id extraction.
-// For now we just use the x-session-id header as a stand in.
-// Later we can replace this with your real auth user id.
-function getUserId(req: Request): string | null {
+// For now, use x-session-id header or a stable local dev id.
+// Replace this with your real auth user id when available.
+function getUserId(req: Request): string {
   const sessionId = req.header("x-session-id");
-  if (!sessionId) return null;
-  return sessionId;
+  if (sessionId && sessionId.trim().length > 0) {
+    return sessionId;
+  }
+  return "local-dev-user";
 }
 
-// Register /api/dopamine routes on this express app
-function registerDopamineRoutes(app: Application) {
+function registerDopamineRoutes(app: express.Application) {
   // GET /api/dopamine/today
-  app.get(
-    "/api/dopamine/today",
-    (req: Request, res: Response) => {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res
-          .status(401)
-          .json({ error: "Missing x-session-id" });
-      }
-
-      const key = `${userId}:${todayISO()}`;
-      const entry = dopamineStore.get(key) || null;
-
-      return res.json(entry);
-    },
-  );
+  app.get("/api/dopamine/today", (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const key = `${userId}:${todayISO()}`;
+    const entry = dopamineStore.get(key) || null;
+    return res.json(entry);
+  });
 
   // POST /api/dopamine
-  app.post(
-    "/api/dopamine",
-    (req: Request, res: Response) => {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res
-          .status(401)
-          .json({ error: "Missing x-session-id" });
-      }
+  app.post("/api/dopamine", (req: Request, res: Response) => {
+    const userId = getUserId(req);
+    const key = `${userId}:${todayISO()}`;
 
-      const key = `${userId}:${todayISO()}`;
-
-      const previous =
-        dopamineStore.get(key) ||
-        ({
-          date: todayISO(),
-          movedBody: false,
-          daylight: false,
-          social: false,
-          creative: false,
-          music: false,
-          learning: false,
-          coldExposure: false,
-          protectedSleep: false,
-        } as DopamineState);
-
-      const body = req.body as Partial<DopaminePayload>;
-
-      const merged: DopamineState = {
-        ...previous,
-        movedBody: body.movedBody ?? previous.movedBody,
-        daylight: body.daylight ?? previous.daylight,
-        social: body.social ?? previous.social,
-        creative: body.creative ?? previous.creative,
-        music: body.music ?? previous.music,
-        learning: body.learning ?? previous.learning,
-        coldExposure:
-          body.coldExposure ?? previous.coldExposure,
-        protectedSleep:
-          body.protectedSleep ?? previous.protectedSleep,
+    const prev: DopamineState =
+      dopamineStore.get(key) || {
+        date: todayISO(),
+        movedBody: false,
+        daylight: false,
+        social: false,
+        creative: false,
+        music: false,
+        learning: false,
+        coldExposure: false,
+        protectedSleep: false,
+        stillness: false,
+        natureTime: false,
       };
 
-      dopamineStore.set(key, merged);
+    const body = req.body as Partial<DopaminePayload>;
 
-      return res.json(merged);
-    },
-  );
+    const next: DopamineState = {
+      ...prev,
+      movedBody: body.movedBody ?? prev.movedBody,
+      daylight: body.daylight ?? prev.daylight,
+      social: body.social ?? prev.social,
+      creative: body.creative ?? prev.creative,
+      music: body.music ?? prev.music,
+      learning: body.learning ?? prev.learning,
+      coldExposure: body.coldExposure ?? prev.coldExposure,
+      protectedSleep: body.protectedSleep ?? prev.protectedSleep,
+      stillness: body.stillness ?? prev.stillness,
+      natureTime: body.natureTime ?? prev.natureTime,
+    };
+
+    dopamineStore.set(key, next);
+    return res.json(next);
+  });
 }
-
 
 declare module "http" {
   interface IncomingMessage {
@@ -164,7 +141,7 @@ function setupBodyParsing(app: express.Application) {
   app.use(
     express.json({
       verify: (req, _res, buf) => {
-        req.rawBody = buf;
+        (req as any).rawBody = buf;
       },
     }),
   );
@@ -378,7 +355,28 @@ async function initStripe() {
     "/api/stripe/webhook/:uuid",
     express.raw({ type: "application/json" }),
     async (req, res) => {
-      // ... existing webhook handler ...
+      const signature = req.headers["stripe-signature"];
+
+      if (!signature) {
+        return res.status(400).json({ error: "Missing stripe-signature" });
+      }
+
+      try {
+        const sig = Array.isArray(signature) ? signature[0] : signature;
+
+        if (!Buffer.isBuffer(req.body)) {
+          log("STRIPE WEBHOOK ERROR: req.body is not a Buffer");
+          return res.status(500).json({ error: "Webhook processing error" });
+        }
+
+        const { uuid } = req.params;
+        await WebhookHandlers.processWebhook(req.body as Buffer, sig, uuid);
+
+        res.status(200).json({ received: true });
+      } catch (error: any) {
+        log("Webhook error:", error.message);
+        res.status(400).json({ error: "Webhook processing error" });
+      }
     }
   );
 
