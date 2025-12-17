@@ -18,65 +18,36 @@ check_port() {
   fi
 }
 
-# Detect frontend dir (look for package.json with expo dep and app.json)
-FRONTEND_DIR=""
-for d in . */; do
-  if [ -f "$d/package.json" ] && [ -f "$d/app.json" ]; then
-    if grep -q 'expo' "$d/package.json"; then
-      FRONTEND_DIR="${d%/}"
-      break
-    fi
-  fi
-done
-if [ -z "$FRONTEND_DIR" ]; then
-  echo "[DEV] ERROR: Could not find frontend folder with Expo. Ensure package.json and app.json exist."
-  exit 1
-fi
-
-# Detect backend start command
-BACKEND_CMD=""
-if [ -f "server/package.json" ]; then
-  if grep -q '"dev"' server/package.json; then
-    BACKEND_CMD="cd server && npm run dev"
-  elif grep -q '"start"' server/package.json; then
-    BACKEND_CMD="cd server && npm start"
-  fi
-fi
-if [ -z "$BACKEND_CMD" ] && [ -f "start-server.sh" ]; then
-  BACKEND_CMD="./start-server.sh"
-fi
-if [ -z "$BACKEND_CMD" ]; then
-  echo "[DEV] ERROR: Could not find backend start command."
-  exit 1
-fi
+FRONTEND_DIR="."
+BACKEND_CMD="./start-server-local.sh"
+BACKEND_PORT="${BACKEND_PORT:-5050}"
 
 echo "[DEV] Using FRONTEND_DIR: $FRONTEND_DIR"
 echo "[DEV] Backend start command: $BACKEND_CMD"
+echo "[DEV] Backend port: $BACKEND_PORT"
 
-banner "[DEV] Checking backend port 5000"
-check_port 5000
+banner "[DEV] Checking backend port ${BACKEND_PORT}"
+check_port "$BACKEND_PORT"
 
 banner "[DEV] Starting backend"
-eval "$BACKEND_CMD &"
+PORT="$BACKEND_PORT" eval "$BACKEND_CMD &"
 BACKEND_PID=$!
 
 banner "[DEV] Waiting for backend health..."
-for i in {1..20}; do
+for i in {1..25}; do
   sleep 1
-  if curl -s http://localhost:5000/api/health | grep 'ok' >/dev/null; then
+  if curl -s "http://localhost:${BACKEND_PORT}/api/health" >/dev/null 2>&1; then
     echo "[DEV] Backend is healthy."
     break
   fi
-  if [ $i -eq 20 ]; then
+  if [ $i -eq 25 ]; then
     echo "[DEV] Backend did not become healthy in time."
-    kill $BACKEND_PID
+    kill $BACKEND_PID >/dev/null 2>&1 || true
     exit 1
   fi
   echo "[DEV] Waiting... ($i)"
 done
 
-banner "[DEV] Checking frontend port 8081"
-check_port 8081
-
 banner "[DEV] Starting Expo (frontend) with cache clear"
-cd "$FRONTEND_DIR" && npx expo start -c
+cd "$FRONTEND_DIR"
+npx expo start -c
